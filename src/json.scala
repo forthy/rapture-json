@@ -1,6 +1,6 @@
 /**********************************************************************************************\
 * Rapture JSON Library                                                                         *
-* Version 0.1.0                                                                                *
+* Version 0.9.0                                                                                *
 *                                                                                              *
 * The primary distribution site is                                                             *
 *                                                                                              *
@@ -377,8 +377,4 @@ object json extends MacroImplicits {
   sealed trait JsonGetException extends RuntimeException
   case class TypeMismatchException() extends JsonGetException
   case class MissingValueException() extends JsonGetException
-  case class ParseException(source: String, line: Option[Int] = None, column: Option[Int] = None)
-      extends Exception {
-    override def toString = "Failed to parse source"
-  }
 }
