@@ -221,15 +221,15 @@ object json extends MacroImplicits {
       implicitly[Extractor[T]].construct(x)
     })
   
-  implicit def optionExtractor[T: Extractor]: Extractor[Option[T]] =
+  implicit def optionExtractor[T](implicit ext: Extractor[T]): Extractor[Option[T]] =
     new BasicExtractor[Option[T]](x => if(x == null) None else Some(x.asInstanceOf[Any]).map(
-        implicitly[Extractor[T]].construct)) {
+        ext.construct)) {
       override def errorToNull = true
     }
   
-  implicit def mapExtractor[T: Extractor]: Extractor[Map[String, T]] =
+  implicit def mapExtractor[T](implicit ext: Extractor[T]): Extractor[Map[String, T]] =
     BasicExtractor[Map[String, T]](_.asInstanceOf[scala.collection.Map[String, Any]].
-        toMap.mapValues(implicitly[Extractor[T]].construct))
+        toMap.mapValues(ext.construct))
 
   case class BasicExtractor[T](val cast: Any => T) extends Extractor[T] {
     def construct(any: Any) = cast(any)
