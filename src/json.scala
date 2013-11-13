@@ -75,21 +75,12 @@ object json extends MacroImplicits {
           Json.parse(sb.toString)(jp, strategy.throwExceptions)
         }
 
-      private def uniqueNonSubstring(s: String) = {
-        var cur, m = 0
-        s foreach { c =>
-          cur = if(c == '_') cur + 1 else 0
-          m = m max cur
-        }
-        "_"*(m + 1)
-      }
-
       /** Extracts values in the structure specified from parsed JSON.  Each element in the JSON
         * structure is compared with the JSON to extract from.  Broadly speaking, elements whose
         * values are specified in the extractor must match, whereas variable elements appearing
         * in the extractor must exist. Lists may not appear in the extractor. */
       def unapplySeq(json: Json): Option[Seq[Json]] = try {
-        val placeholder = uniqueNonSubstring(sc.parts.mkString)
+        val placeholder = Utils.uniqueNonSubstring(sc.parts.mkString)
         val PlaceholderNumber = (placeholder+"([0-9]+)"+placeholder).r
         val next = new Counter(0)
         val txt = sc.parts.reduceLeft(_ + s""""${placeholder}${next()}${placeholder}" """ + _)

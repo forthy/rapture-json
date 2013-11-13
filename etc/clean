@@ -1,2 +1,2 @@
 #!/bin/sh
-rm -rf json bin/*
+rm -rf json.jar bin/*
