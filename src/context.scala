@@ -32,8 +32,8 @@ class JsonStrings(sc: StringContext)(implicit parser: JsonParser[String])
     extends {
   object json {
     /** Creates a new interpolated JSON object. */
-    def apply[![_, +_]: ExceptionHandler](exprs: Any*): Json!ParseException =
-      strategize {
+    def apply(exprs: Any*)(implicit eh: ExceptionHandler): eh.![Json, ParseException] =
+      eh.wrap {
         val sb = new StringBuilder
         val textParts = sc.parts.iterator
         val expressions = exprs.iterator

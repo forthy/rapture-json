@@ -37,8 +37,8 @@ package object json {
     new JsonStrings(sc)
 
   object JsonBuffer {
-    def parse[Source: JsonParser, ![_, +_ <: Exception]: ExceptionHandler](s: Source):
-        JsonBuffer!ParseException = strategize {
+    def parse[Source: JsonParser](s: Source)(implicit eh: ExceptionHandler):
+        eh.![JsonBuffer, ParseException] = eh.wrap {
       new JsonBuffer(try implicitly[JsonParser[Source]].parseMutable(s).get catch {
         case e: NoSuchElementException => throw new ParseException(s.toString)
       })
@@ -50,8 +50,8 @@ package object json {
   object Json {
 
     /** Parses a string containing JSON into a `Json` object */
-    def parse[Source: JsonParser, ![_, +_]: ExceptionHandler](s: Source):
-        Json!ParseException = strategize {
+    def parse[Source: JsonParser](s: Source)(implicit eh: ExceptionHandler):
+        eh.![Json, ParseException] = eh.wrap {
       new Json(try implicitly[JsonParser[Source]].parse(s).get catch {
         case e: NoSuchElementException => throw new ParseException(s.toString)
       })
@@ -208,8 +208,8 @@ package object json {
     }
 
     /** Assumes the Json object is wrapping a `T`, and casts (intelligently) to that type. */
-    def get[T: Extractor, ![_, +_]: ExceptionHandler]: T!JsonGetException =
-      strategize(try implicitly[Extractor[T]].construct(if(implicitly[Extractor[T]].errorToNull)
+    def get[T: Extractor](implicit eh: ExceptionHandler): eh.![T, JsonGetException] =
+      eh.wrap(try implicitly[Extractor[T]].construct(if(implicitly[Extractor[T]].errorToNull)
             (try normalize catch { case e: Exception => null }) else normalize) catch {
           case e: MissingValueException => throw e
           case e: Exception => throw new TypeMismatchException()
@@ -281,8 +281,8 @@ package object json {
     }
 
     /** Assumes the Json object is wrapping a `T`, and casts (intelligently) to that type. */
-    def get[T: Extractor, ![_, +_]: ExceptionHandler]: T!JsonGetException =
-      strategize(try implicitly[Extractor[T]].construct(if(implicitly[Extractor[T]].errorToNull)
+    def get[T: Extractor](implicit eh: ExceptionHandler): eh.![T, JsonGetException] =
+      eh.wrap(try implicitly[Extractor[T]].construct(if(implicitly[Extractor[T]].errorToNull)
           (try normalize(false, false) catch { case e: Exception => null }) else
           normalize(false, false)) catch {
         case e: MissingValueException => throw e
