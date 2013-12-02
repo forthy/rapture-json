@@ -32,7 +32,7 @@ package object json {
 
   implicit def materialize[T <: Product]: Extractor[T] =
     macro CaseClassExtraction.materialize[T]
-
+  
   implicit def jsonStrings(sc: StringContext)(implicit parser: JsonParser[String]) =
     new JsonStrings(sc)
 

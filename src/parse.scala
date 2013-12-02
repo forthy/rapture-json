@@ -26,7 +26,7 @@ import language.experimental.macros
 import scala.collection.mutable.{ListBuffer, HashMap}
 
 object parsers {
-  implicit val scalaJson: JsonParser[String] = ScalaJsonParser
+  implicit val scalaJson = ScalaJsonParser
 }
 
 /** Represents a JSON parser implementation which is used throughout this library */

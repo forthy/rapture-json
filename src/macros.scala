@@ -33,6 +33,8 @@ object CaseClassExtraction {
   def materialize[T: c.WeakTypeTag](c: Context): c.Expr[Extractor[T]] = {
     import c.universe._
 
+    if(weakTypeTag[T] == weakTypeTag[String]) throw new Exception
+
     val extractor = typeOf[Extractor[_]].typeSymbol.asType.toTypeConstructor
 
     val params = weakTypeOf[T].declarations collect {
