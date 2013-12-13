@@ -67,6 +67,7 @@ object Json {
         "\""+s.replaceAll("\\\\", "\\\\\\\\").replaceAll("\r",
             "\\\\r").replaceAll("\n", "\\\\n").replaceAll("\"", "\\\\\"")+"\""
       case Some(n: Int) => n.toString
+      case Some(n: Double) => if(n == n.floor) n.toInt.toString else n.toString
       case Some(n: Number) => n.toString
       case Some(v: Boolean) => if(v) "true" else "false"
       case Some(j: Json) => format(Some(j.json), ln)

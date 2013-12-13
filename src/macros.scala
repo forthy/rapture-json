@@ -33,7 +33,7 @@ object Macros {
   def extractorMacro[T: c.WeakTypeTag](c: Context): c.Expr[Extractor[T]] = {
     import c.universe._
 
-    if(!weakTypeOf[T].typeSymbol.asClass.isCaseClass) throw new Exception()
+    require(weakTypeOf[T].typeSymbol.asClass.isCaseClass)
 
     val extractor = typeOf[Extractor[_]].typeSymbol.asType.toTypeConstructor
 
@@ -82,56 +82,82 @@ object Macros {
   def jsonizerMacro[T: c.WeakTypeTag](c: Context): c.Expr[Jsonizer[T]] = {
     import c.universe._
 
-    //if(weakTypeTag[T] == weakTypeTag[String]) throw new Exception
-    if(!weakTypeOf[T].typeSymbol.asClass.isCaseClass) throw new Exception()
-    
+    val tpe = weakTypeOf[T].typeSymbol.asClass
     val jsonizer = typeOf[Jsonizer[_]].typeSymbol.asType.toTypeConstructor
 
-    val params = weakTypeOf[T].declarations collect {
-      case m: MethodSymbol if m.isCaseAccessor => m.asMethod
-    } map { p =>
-      Apply(
-        Select(
-          Apply(
-            Select(
-              Ident(definitions.PredefModule),
-              newTermName("any2ArrowAssoc")
-            ),
-            List(
-              Literal(Constant(p.name.toString))
-            )
-          ),
-          newTermName("$minus$greater")
-        ),
-        List(
-          Apply(
-            Select(
-              c.inferImplicitValue(appliedType(jsonizer, List(p.returnType)), false, false),
-              newTermName("jsonize")
-            ),
-            List(
+    val construction = if(tpe.isCaseClass) {
+
+      val params = weakTypeOf[T].declarations collect {
+        case m: MethodSymbol if m.isCaseAccessor => m.asMethod
+      } map { p =>
+        Apply(
+          Select(
+            Apply(
               Select(
-                Ident(newTermName("t")),
-                p.name
+                Ident(definitions.PredefModule),
+                newTermName("any2ArrowAssoc")
+              ),
+              List(
+                Literal(Constant(p.name.toString))
+              )
+            ),
+            newTermName("$minus$greater")
+          ),
+          List(
+            Apply(
+              Select(
+                c.inferImplicitValue(appliedType(jsonizer, List(p.returnType)), false, false),
+                newTermName("jsonize")
+              ),
+              List(
+                Select(
+                  Ident(newTermName("t")),
+                  p.name
+                )
               )
             )
           )
         )
-      )
-    }
+      }
 
-    val construction = c.Expr(
-      Apply(
-        Select(
+      c.Expr(
+        Apply(
           Select(
-            Ident(definitions.PredefModule),
-            newTermName("Map")
+            Select(
+              Ident(definitions.PredefModule),
+              newTermName("Map")
+            ),
+            newTermName("apply")
           ),
-          newTermName("apply")
-        ),
-        params.to[List]
+          params.to[List]
+        )
       )
-    )
+    } else if(tpe.isSealed) {
+      c.Expr(
+        Match(
+          Ident(newTermName("t")),
+          tpe.knownDirectSubclasses.to[List] map { sc =>
+            CaseDef(
+              Bind(
+                newTermName("v"),
+                Typed(
+                  Ident(nme.WILDCARD),
+                  Ident(sc.asClass)
+                )
+              ),
+              EmptyTree,
+              Apply(
+                Select(
+                  c.inferImplicitValue(appliedType(jsonizer, List(sc.asType.toType)), false, false),
+                  newTermName("jsonize")
+                ),
+                List(Ident(newTermName("v")))
+              )
+            )
+          }
+        )
+      )
+    } else throw new Exception()
 
     reify(new Jsonizer[T] { def jsonize(t: T): Any = construction.splice })
   }

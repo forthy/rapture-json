@@ -50,6 +50,9 @@ package object json extends MacroImplicits {
   implicit val floatJsonizer: Jsonizer[Float] =
     new Jsonizer[Float] { def jsonize(f: Float) = f }
   
+  implicit val doubleJsonizer: Jsonizer[Double] =
+    new Jsonizer[Double] { def jsonize(d: Double) = d }
+  
   implicit val longJsonizer: Jsonizer[Long] =
     new Jsonizer[Long] { def jsonize(l: Long) = l.toDouble }
   
