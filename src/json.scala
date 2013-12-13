@@ -104,6 +104,13 @@ object Json {
 class Json(private[json] val json: Any, path: Vector[Either[Int, String]] = Vector())
     extends Dynamic {
 
+  override def equals(any: Any) = any match {
+    case any: Json => json == any.json
+    case _ => false
+  }
+
+  override def hashCode = json.hashCode & "json".hashCode
+
   /** Assumes the Json object is wrapping a List, and extracts the `i`th element from the
     * vector */
   def apply(i: Int): Json =
