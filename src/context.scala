@@ -61,13 +61,13 @@ class JsonStrings(sc: StringContext)(implicit parser: JsonParser[String])
       def extract(struct: Any, path: Vector[String]): Unit = {
         struct match {
           case d: Double =>
-            if(json.extract(path).get[Double](doubleExtractor, raw) != d)
+            if(json.extract(path).get[Double](raw, doubleExtractor) != d)
               throw new Exception("Value doesn't match")
           case s: String =>
-            if(json.extract(path).get[String](stringExtractor, raw) != s)
+            if(json.extract(path).get[String](raw, stringExtractor) != s)
               throw new Exception("Value doesn't match")
           case m: Map[_, _] => m foreach {
-            case (k, v) => v match {
+            case (k, v: String) => v match {
               case PlaceholderNumber(n) if v.isInstanceOf[String] =>
                 paths(n.toInt) = path :+ k.asInstanceOf[String]
               case _ => extract(v, path :+ k.asInstanceOf[String])

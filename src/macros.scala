@@ -18,7 +18,9 @@
 * either express or implied. See the License for the specific language governing permissions   *
 * and limitations under the License.                                                           *
 \**********************************************************************************************/
-package rapture
+package rapture.json
+
+import language.experimental.macros
 
 import scala.reflect._
 import scala.reflect.api._
@@ -26,14 +28,12 @@ import scala.reflect.runtime._
 import scala.reflect.macros._
 import scala.annotation._
 
-object CaseClassExtraction {
-  
-  import language.experimental.macros
-  
-  def materialize[T: c.WeakTypeTag](c: Context): c.Expr[Extractor[T]] = {
+object Macros {
+ 
+  def extractorMacro[T: c.WeakTypeTag](c: Context): c.Expr[Extractor[T]] = {
     import c.universe._
 
-    if(weakTypeTag[T] == weakTypeTag[String]) throw new Exception
+    if(!weakTypeOf[T].typeSymbol.asClass.isCaseClass) throw new Exception()
 
     val extractor = typeOf[Extractor[_]].typeSymbol.asType.toTypeConstructor
 
@@ -71,18 +71,79 @@ object CaseClassExtraction {
 
     val construction = c.Expr(
       New(
-        weakTypeOf[T].typeSymbol.asType,
+        weakTypeOf[T].typeSymbol,
         params.to[List]: _*
       )
     )
 
     reify(new Extractor[T] { def construct(json: Any): T = construction.splice })
   }
+
+  def jsonizerMacro[T: c.WeakTypeTag](c: Context): c.Expr[Jsonizer[T]] = {
+    import c.universe._
+
+    //if(weakTypeTag[T] == weakTypeTag[String]) throw new Exception
+    if(!weakTypeOf[T].typeSymbol.asClass.isCaseClass) throw new Exception()
+    
+    val jsonizer = typeOf[Jsonizer[_]].typeSymbol.asType.toTypeConstructor
+
+    val params = weakTypeOf[T].declarations collect {
+      case m: MethodSymbol if m.isCaseAccessor => m.asMethod
+    } map { p =>
+      Apply(
+        Select(
+          Apply(
+            Select(
+              Ident(definitions.PredefModule),
+              newTermName("any2ArrowAssoc")
+            ),
+            List(
+              Literal(Constant(p.name.toString))
+            )
+          ),
+          newTermName("$minus$greater")
+        ),
+        List(
+          Apply(
+            Select(
+              c.inferImplicitValue(appliedType(jsonizer, List(p.returnType)), false, false),
+              newTermName("jsonize")
+            ),
+            List(
+              Select(
+                Ident(newTermName("t")),
+                p.name
+              )
+            )
+          )
+        )
+      )
+    }
+
+    val construction = c.Expr(
+      Apply(
+        Select(
+          Select(
+            Ident(definitions.PredefModule),
+            newTermName("Map")
+          ),
+          newTermName("apply")
+        ),
+        params.to[List]
+      )
+    )
+
+    reify(new Jsonizer[T] { def jsonize(t: T): Any = construction.splice })
+  }
 }
 
-
-@implicitNotFound("Cannot extract type ${T} from JSON.")
+@implicitNotFound("cannot extract type ${T} from JSON.")
 trait Extractor[T] {
   def construct(any: Any): T
   def errorToNull = false
+}
+
+@implicitNotFound("cannot serialize type ${T} to JSON.")
+trait Jsonizer[T] {
+  def jsonize(t: T): Any
 }

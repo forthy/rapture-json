@@ -1,4 +1,4 @@
 #!/bin/sh
 mkdir -p bin && \
-scalac -feature -deprecation -cp /opt/scala-2.10.3/lib/scala-reflect.jar:../core/core.jar -d bin src/*.scala && \
+scalac -feature -deprecation -cp ../core/core.jar -d bin src/*.scala && \
 jar cmf etc/manifest json.jar -C bin rapture
