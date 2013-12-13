@@ -25,7 +25,7 @@ import language.dynamics
 import language.experimental.macros
 import scala.collection.mutable.{ListBuffer, HashMap}
 
-object parsers {
+object jsonParsers {
   implicit val scalaJson = ScalaJsonParser
 }
 
