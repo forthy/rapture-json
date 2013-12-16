@@ -19,12 +19,12 @@
 * and limitations under the License.                                                           *
 \**********************************************************************************************/
 package rapture.json
+
 import rapture.core._
 
-import language.dynamics
-import language.higherKinds
-import language.experimental.macros
 import scala.collection.mutable.{ListBuffer, HashMap}
+
+import language.dynamics
 
 object JsonBuffer {
   def parse[Source: JsonParser](s: Source)(implicit eh: ExceptionHandler):

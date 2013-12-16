@@ -19,11 +19,8 @@
 * and limitations under the License.                                                           *
 \**********************************************************************************************/
 package rapture.json
-import rapture.core._
 
-import language.dynamics
-import language.experimental.macros
-import scala.collection.mutable.{ListBuffer, HashMap}
+import rapture.core._
 
 /** Provides support for JSON literals, in the form json" { } " or json""" { } """.
   * Interpolation is used to substitute variable names into the JSON, and to extract values

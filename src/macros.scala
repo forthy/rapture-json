@@ -20,13 +20,10 @@
 \**********************************************************************************************/
 package rapture.json
 
-import language.experimental.macros
-
-import scala.reflect._
-import scala.reflect.api._
-import scala.reflect.runtime._
 import scala.reflect.macros._
 import scala.annotation._
+
+import language.experimental.macros
 
 object Macros {
  

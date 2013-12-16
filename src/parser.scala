@@ -19,6 +19,7 @@
 * and limitations under the License.                                                           *
 \**********************************************************************************************/
 package rapture.json
+
 import rapture.core._
 
 class JsonChunk {

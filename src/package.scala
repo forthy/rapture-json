@@ -18,17 +18,16 @@
 * either express or implied. See the License for the specific language governing permissions   *
 * and limitations under the License.                                                           *
 \**********************************************************************************************/
-package rapture
-import rapture.core._
-import rapture.json._
+package rapture.json
 
-import language.dynamics
+import rapture.core._
+
 import language.higherKinds
 import language.experimental.macros
 
 trait MacroImplicits {
   
-  implicit def extractorMacro[T <: Product]: json.Extractor[T] =
+  implicit def extractorMacro[T <: Product]: Extractor[T] =
     macro Macros.extractorMacro[T]
   
   implicit def jsonizerMacro[T <: Product]: Jsonizer[T] =
@@ -36,7 +35,7 @@ trait MacroImplicits {
   
 }
 
-package object json extends MacroImplicits {
+object `package` extends MacroImplicits {
 
   implicit val intJsonizer: Jsonizer[Int] =
     new Jsonizer[Int] { def jsonize(i: Int) = i.toDouble }

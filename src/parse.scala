@@ -19,10 +19,9 @@
 * and limitations under the License.                                                           *
 \**********************************************************************************************/
 package rapture.json
+
 import rapture.core._
 
-import language.dynamics
-import language.experimental.macros
 import scala.collection.mutable.{ListBuffer, HashMap}
 
 object jsonParsers {
