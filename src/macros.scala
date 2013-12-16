@@ -67,10 +67,19 @@ object Macros {
     }
 
     val construction = c.Expr(
-      New(
+      Apply(
+        Select(
+          New(
+            TypeTree(weakTypeOf[T])
+          ),
+          nme.CONSTRUCTOR
+        ),
+        params.to[List]
+      )
+      /*New(
         weakTypeOf[T].typeSymbol,
         params.to[List]: _*
-      )
+      )*/
     )
 
     reify(new Extractor[T] { def construct(json: Any): T = construction.splice })
