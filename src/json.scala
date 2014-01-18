@@ -137,13 +137,17 @@ class Json(private[json] val json: Any, path: Vector[Either[Int, String]] = Vect
       case (j, Vector()) => j
       case (j, t :+ Left(i)) =>
         fn(try j.asInstanceOf[List[Any]](i) catch {
-          case e: ClassCastException => throw MissingValueException()
-          case e: IndexOutOfBoundsException => throw MissingValueException()
+          case e: ClassCastException =>
+            throw MissingValueException(path.drop(t.length))
+          case e: IndexOutOfBoundsException =>
+            throw MissingValueException(path.drop(t.length))
         }, t)
       case (j, t :+ Right(k)) =>
         fn(try j.asInstanceOf[Map[String, Any]](k) catch {
-          case e: ClassCastException => throw MissingValueException()
-          case e: NoSuchElementException => throw MissingValueException()
+          case e: ClassCastException =>
+            throw MissingValueException(path.drop(t.length))
+          case e: NoSuchElementException =>
+            throw MissingValueException(path.drop(t.length))
         }, t)
         
     } } (json -> path)
@@ -154,7 +158,7 @@ class Json(private[json] val json: Any, path: Vector[Either[Int, String]] = Vect
     eh.wrap(try ext.construct(if(ext.errorToNull)
           (try normalize catch { case e: Exception => null }) else normalize) catch {
         case e: MissingValueException => throw e
-        case e: Exception => throw new TypeMismatchException()
+        case e: Exception => throw TypeMismatchException(path)
       })
 
   /** Assumes the Json object is wrapping a List, and returns an iterator over the list */
@@ -206,8 +210,10 @@ class JsonBuffer(private[json] val json: Any, path: Vector[Either[Int, String]] 
       case (j, Vector()) => j
       case (j, Left(i) +: t) =>
         fn(try j.asInstanceOf[ListBuffer[Any]](i) catch {
-          case e: ClassCastException => throw MissingValueException()
-          case e: IndexOutOfBoundsException => throw MissingValueException()
+          case e: ClassCastException =>
+            throw MissingValueException(path.drop(t.length))
+          case e: IndexOutOfBoundsException =>
+            throw MissingValueException(path.drop(t.length))
         }, t)
       case (j, Right(k) +: t) =>
         val obj = if(array && t.isEmpty) new ListBuffer[Any] else new HashMap[String, Any]()
@@ -215,8 +221,10 @@ class JsonBuffer(private[json] val json: Any, path: Vector[Either[Int, String]] 
           if(modify) j.asInstanceOf[HashMap[String, Any]].getOrElseUpdate(k, obj)
           else j.asInstanceOf[HashMap[String, Any]](k)
         } catch {
-          case e: ClassCastException => throw MissingValueException()
-          case e: NoSuchElementException => throw MissingValueException()
+          case e: ClassCastException =>
+            throw MissingValueException(path.drop(t.length))
+          case e: NoSuchElementException =>
+            throw MissingValueException(path.drop(t.length))
         }, t)
         
     } } (json -> path.reverse)
@@ -228,7 +236,7 @@ class JsonBuffer(private[json] val json: Any, path: Vector[Either[Int, String]] 
         (try normalize(false, false) catch { case e: Exception => null }) else
         normalize(false, false)) catch {
       case e: MissingValueException => throw e
-      case e: Exception => throw new TypeMismatchException()
+      case e: Exception => throw TypeMismatchException(path)
     })
 
   /** Assumes the Json object is wrapping a List, and returns an iterator over the list */
@@ -256,6 +264,18 @@ case class CascadeExtractor[T](casts: (Json => T)*) extends Extractor[T] {
   }
 }
 
-sealed trait JsonGetException extends RuntimeException
-case class TypeMismatchException() extends JsonGetException
-case class MissingValueException() extends JsonGetException
+object JsonGetException {
+  def stringifyPath(path: Vector[Either[Int, String]]) = path.reverse map {
+    case Left(i) => s"($i)"
+    case Right(s) => s".$s"
+  } mkString ""
+}
+
+sealed class JsonGetException(msg: String) extends RuntimeException(msg)
+
+case class TypeMismatchException(path: Vector[Either[Int, String]])
+  extends JsonGetException("Type mismatch: json"+JsonGetException.stringifyPath(path))
+
+case class MissingValueException(path: Vector[Either[Int, String]])
+  extends JsonGetException("Missing value: json"+JsonGetException.stringifyPath(path))
+
