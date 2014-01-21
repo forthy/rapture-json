@@ -49,16 +49,40 @@ trait JsonParser[Source] {
   type JsonArray
   type JsonNull
 
-  def getBoolean(boolean: JsonBoolean): Boolean
-  def getString(string: JsonString): String
-  def getDouble(number: JsonNumber): Double
-  def getInt(number: JsonNumber): Int
-  def getObject(obj: JsonObject): Map[String, Any]
-  def getArray(array: JsonArray): Seq[Any]
+  def getBoolean(boolean: Any): Boolean
+  def getString(string: Any): String
+  def getDouble(number: Any): Double
+  def getObject(obj: Any): Map[String, Any]
+  def getArray(array: Any): Seq[Any]
+
+  def isBoolean(any: Any): Boolean
+  def isString(any: Any): Boolean
+  def isNumber(any: Any): Boolean
+  def isObject(any: Any): Boolean
+  def isArray(any: Any): Boolean
+  def isNull(any: Any): Boolean
+
+  protected def typeTest(pf: PartialFunction[Any, Unit])(v: Any) = pf.isDefinedAt(v)
+}
+
+trait JsonBufferParser[T] extends JsonParser[T] {
+  type JsonBufferObject
+  type JsonBufferArray
+
+  def isMutableArray(array: Any): Boolean
+  def isMutableObject(array: Any): Boolean
+  def getMutableArray(array: Any): List[Any]
+  def getMutableObject(obj: Any): Map[String, Any]
+  def setMutableObjectValue(obj: Any, name: String, value: Any): Unit
+  def setMutableArrayValue(array: Any, index: Int, value: Any): Unit
+  def removeMutableObjectValue(obj: Any, name: String): Unit
+  def addMutableArrayValue(array: Any, value: Any): Unit
+
+  def toMutable(any: Any): Any
 }
 
 /** The default JSON parser implementation */
-object ScalaJsonParser extends JsonParser[String] {
+object ScalaJsonParser extends JsonBufferParser[String] {
   
   import scala.util.parsing.json._
   
@@ -69,12 +93,80 @@ object ScalaJsonParser extends JsonParser[String] {
   type JsonObject = Map[String, Any]
   type JsonNull = Null
 
-  def getArray(array: List[Any]) = array
-  def getBoolean(boolean: Boolean) = boolean
-  def getDouble(number: Double) = number
-  def getInt(number: Double) = number.toInt
-  def getString(string: String) = string
-  def getObject(obj: Map[String, Any]) = obj
+  type JsonBufferObject = HashMap[String, Any]
+  type JsonBufferArray = ListBuffer[Any]
+
+  def getArray(array: Any): List[Any] = array match {
+    case list: List[a] => list
+    case _ => throw TypeMismatchException(Vector())
+  }
+
+  def getBoolean(boolean: Any): Boolean = boolean match {
+    case boolean: Boolean => boolean
+    case _ => throw TypeMismatchException(Vector())
+  }
+  
+  def getDouble(double: Any): Double = double match {
+    case double: Double => double
+    case _ => throw TypeMismatchException(Vector())
+  }
+  
+  def getString(string: Any): String = string match {
+    case string: String => string
+    case _ => throw TypeMismatchException(Vector())
+  }
+  
+  def getObject(obj: Any): Map[String, Any] = obj match {
+    case obj: Map[_, _] => obj collect { case (k: String, v) => k -> v }
+    case _ => throw TypeMismatchException(Vector())
+  }
+  
+  def getMutableArray(array: Any): List[Any] = array match {
+    case array: ListBuffer[Any] => array.to[List]
+    case _ => throw TypeMismatchException(Vector())
+  }
+
+  def getMutableObject(obj: Any): Map[String, Any] = obj match {
+    case obj: HashMap[String, Any] => obj.toMap
+    case _ => throw TypeMismatchException(Vector())
+  }
+
+  def setMutableObjectValue(obj: Any, name: String, value: Any): Unit = obj match {
+    case obj: HashMap[String, Any] => obj(name) = value
+    case _ => throw TypeMismatchException(Vector())
+  }
+  
+  def removeMutableObjectValue(obj: Any, name: String): Unit = obj match {
+    case obj: HashMap[String, Any] => obj.remove(name)
+    case _ => throw TypeMismatchException(Vector())
+  }
+  
+  def addMutableArrayValue(array: Any, value: Any): Unit = array match {
+    case array: ListBuffer[Any] => array += value
+    case _ => throw TypeMismatchException(Vector())
+  }
+  
+  def setMutableArrayValue(array: Any, index: Int, value: Any): Unit = array match {
+    case array: ListBuffer[Any] => array(index) = value
+    case _ => throw TypeMismatchException(Vector())
+  }
+  
+  
+  def isBoolean(any: Any): Boolean = typeTest { case _: Boolean => () } (any)
+  def isString(any: Any): Boolean = typeTest { case _: String => () } (any)
+  def isNumber(any: Any): Boolean = typeTest { case _: Double => () } (any)
+  def isObject(any: Any): Boolean = typeTest { case _: Map[_, _] => () } (any)
+  def isArray(any: Any): Boolean = typeTest { case _: List[_] => () } (any)
+  def isNull(any: Any): Boolean = any == null
+  
+  def isMutableArray(any: Any): Boolean = typeTest { case _: ListBuffer[_] => () } (any)
+  def isMutableObject(any: Any): Boolean = typeTest { case _: HashMap[_, _] => () } (any)
+  
+  def toMutable(any: Any): Any = any match {
+    case list: List[t] => list.map(toMutable).to[ListBuffer]
+    case map: Map[k, v] => HashMap.empty ++ map.mapValues(toMutable)
+    case other => other
+  }
   
   def parse(s: String): Option[Any] = JSON.parseFull(s)
 }

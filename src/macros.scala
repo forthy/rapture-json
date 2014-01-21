@@ -34,6 +34,8 @@ object Macros {
 
     val extractor = typeOf[Extractor[_]].typeSymbol.asType.toTypeConstructor
 
+    // FIXME: This will perform badly for large objects, as the map extraction is applied to
+    // all elements once for every element
     val params = weakTypeOf[T].declarations collect {
       case m: MethodSymbol if m.isCaseAccessor => m.asMethod
     } map { p =>
@@ -42,27 +44,21 @@ object Macros {
           c.Expr[Extractor[_]](
             c.inferImplicitValue(appliedType(extractor, List(p.returnType)), false, false)
           ).tree,
-          newTermName("construct")
+          newTermName("rawConstruct")
         ),
-        List(Apply(
-          Select(
-            TypeApply(
-              Select(Ident(newTermName("json")), newTermName("asInstanceOf")),
-              List(AppliedTypeTree(
-                Select(Ident(definitions.PredefModule), newTypeName("Map")),
-                List(
-                  Select(
-                    Ident(definitions.PredefModule),
-                    newTypeName("String")
-                  ),
-                  Ident(definitions.AnyClass)
-                ))
-              )
+        List(
+          Apply(
+            Select(
+              Ident(newTermName("json")),
+              newTermName("$accessInnerJsonMap")
             ),
-            newTermName("apply")
+            List(Literal(Constant(p.name.toString)))
           ),
-          List(Literal(Constant(p.name.toString)))
-        ))
+          Select(
+            Ident(newTermName("json")),
+            newTermName("parser")
+          )
+        )
       )
     }
 
@@ -82,7 +78,7 @@ object Macros {
       )*/
     )
 
-    reify(new Extractor[T] { def construct(json: Any): T = construction.splice })
+    reify(new Extractor[T] { def construct(json: Json): T = construction.splice })
   }
 
   def jsonizerMacro[T: c.WeakTypeTag](c: Context): c.Expr[Jsonizer[T]] = {
@@ -171,7 +167,8 @@ object Macros {
 
 @implicitNotFound("cannot extract type ${T} from JSON.")
 trait Extractor[T] {
-  def construct(any: Any): T
+  def construct(any: Json): T
+  def rawConstruct(any: Any, parser: JsonParser[_]): T = construct(new Json(any)(parser))
   def errorToNull = false
 }
 

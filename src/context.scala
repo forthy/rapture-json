@@ -65,9 +65,8 @@ class JsonStrings(sc: StringContext)(implicit parser: JsonParser[String])
               throw new Exception("Value doesn't match")
           case m: Map[_, _] => m foreach {
             case (k, v: String) => v match {
-              case PlaceholderNumber(n) if v.isInstanceOf[String] =>
-                paths(n.toInt) = path :+ k.asInstanceOf[String]
-              case _ => extract(v, path :+ k.asInstanceOf[String])
+              case PlaceholderNumber(n) => paths(n.toInt) = path :+ k.toString
+              case _ => extract(v, path :+ k.toString)
             }
           }
           case a: List[_] => ()

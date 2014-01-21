@@ -27,11 +27,34 @@ import scala.collection.mutable.{ListBuffer, HashMap}
 import language.dynamics
 
 object JsonBuffer {
-  def parse[Source: JsonParser](s: Source)(implicit eh: ExceptionHandler):
+  def parse[Source: JsonBufferParser](s: Source)(implicit eh: ExceptionHandler):
       eh.![JsonBuffer, ParseException] = eh.wrap {
     new JsonBuffer(try implicitly[JsonParser[Source]].parseMutable(s).get catch {
       case e: NoSuchElementException => throw new ParseException(s.toString)
     })
+  }
+  
+  def apply[T: Jsonizer](t: T)(implicit parser: JsonBufferParser[_]): JsonBuffer =
+    new JsonBuffer(parser.toMutable(implicitly[Jsonizer[T]].jsonize(t)))
+
+  /** Formats the JSON object for multi-line readability. */
+  def format(json: Option[Any], ln: Int, parser: JsonBufferParser[_], pad: String = " ",
+      brk: String = "\n"): String = {
+    val indent = " "*ln
+    json match {
+      case None => "null"
+      case Some(j) =>
+        if(parser.isMutableArray(j)) {
+          List("[", parser.getMutableArray(j) map { v =>
+            s"${indent}${pad}${format(Some(v), ln + 1, parser)}"
+          } mkString s",${brk}", s"${indent}]") mkString brk
+        } else if(parser.isMutableObject(j)) {
+          val o = parser.getMutableObject(j)
+          List("{", o.keys map { k =>
+            s"""${indent}${pad}"${k}":${pad}${format(o.get(k), ln + 1, parser)}"""
+          } mkString s",${brk}", s"${indent}}") mkString brk
+        } else Json.format(json, ln, parser, pad, brk)
+    }
   }
 }
 
@@ -47,65 +70,52 @@ object Json {
     })
   }
 
-  def apply[T: Jsonizer](t: T) = new Json(implicitly[Jsonizer[T]].jsonize(t))
+  def apply[T: Jsonizer](t: T)(implicit parser: JsonParser[_]) =
+    new Json(implicitly[Jsonizer[T]].jsonize(t))
 
-  def wrapDynamic(any: Any) = new Json(any)
+  def wrapDynamic(any: Any)(implicit parser: JsonParser[_]) = new Json(any)
 
-  def unapply(json: Any): Option[Json] = Some(new Json(json))
+  def unapply(json: Any)(implicit parser: JsonParser[_]): Option[Json] = Some(new Json(json))
 
-  def format(json: Json): String = format(Some(json.json), 0)
+  def format(json: Json): String = format(Some(json.json), 0, json.parser)
   
   /** Formats the JSON object for multi-line readability. */
-  def format(json: Option[Any], ln: Int): String = {
+  def format(json: Option[Any], ln: Int, parser: JsonParser[_], pad: String = " ",
+      brk: String = "\n"): String = {
     val indent = " "*ln
     json match {
-      case Some(o: scala.collection.Map[_, _]) =>
-        List("{", o.keys map { k => indent+" "+"\""+k+"\": "+format(o.get(k), ln + 1) } mkString
-            ",\n", indent+"}").mkString("\n")
-      case Some(a: Seq[_]) =>
-        List("[", a map { v => indent+" "+format(Some(v), ln + 1) } mkString(",\n"),
-            indent+"]") mkString "\n"
-      case Some(s: String) =>
-        "\""+s.replaceAll("\\\\", "\\\\\\\\").replaceAll("\r",
-            "\\\\r").replaceAll("\n", "\\\\n").replaceAll("\"", "\\\\\"")+"\""
-      case Some(n: Int) => n.toString
-      case Some(n: Double) => if(n == n.floor) n.toInt.toString else n.toString
-      case Some(n: Number) => n.toString
-      case Some(v: Boolean) => if(v) "true" else "false"
-      case Some(j: Json) => format(Some(j.json), ln)
-      case Some(j: JsonBuffer) => format(Some(j.json), ln)
       case None => "null"
-      case _ => "undefined"
+      case Some(j) =>
+        if(parser.isString(j)) {
+          "\""+parser.getString(j).replaceAll("\\\\", "\\\\\\\\").replaceAll("\r",
+              "\\\\r").replaceAll("\n", "\\\\n").replaceAll("\"", "\\\\\"")+"\""
+        } else if(parser.isBoolean(j)) {
+          if(parser.getBoolean(j)) "true" else "false"
+        } else if(parser.isNumber(j)) {
+          val n = parser.getDouble(j)
+          if(n == n.floor) n.toInt.toString else n.toString
+        } else if(parser.isArray(j)) {
+          List("[", parser.getArray(j) map { v =>
+            s"${indent}${pad}${format(Some(v), ln + 1, parser)}"
+          } mkString s",${brk}", s"${indent}]") mkString brk
+        } else if(parser.isObject(j)) {
+          val o = parser.getObject(j)
+          List("{", o.keys map { k =>
+            s"""${indent}${pad}"${k}":${pad}${format(o.get(k), ln + 1, parser)}"""
+          } mkString s",${brk}", s"${indent}}") mkString brk
+        } else if(parser.isNull(j)) "null"
+        else "undefined"
     }
   }
 
-  def serialize(json: Json): String = serialize(Some(json.normalize))
-
-  def serialize(json: Option[Any]): String = {
-    json match {
-      case Some(o: scala.collection.Map[_, _]) =>
-        List("{", o.keys map { k => "\""+k+"\":"+serialize(o.get(k)) } mkString
-            ",", "}").mkString
-      case Some(a: Seq[_]) =>
-        List("[", a map { v => serialize(Some(v)) } mkString(","),
-            "]") mkString ""
-      case Some(s: String) =>
-        "\""+s.replaceAll("\\\\", "\\\\\\\\").replaceAll("\n", "\\\\n").replaceAll("\"",
-            "\\\\\"")+"\""
-      case Some(n: Int) => n.toString
-      case Some(n: Number) => n.toString
-      case Some(v: Boolean) => if(v) "true" else "false"
-      case Some(j: Json) => serialize(Some(j.json))
-      case Some(j: JsonBuffer) => serialize(Some(j.json))
-      case None => "null"
-      case _ => "undefined"
-    }
-  }
+  def serialize(json: Json): String = format(Some(json.normalize), 0, json.parser, "", "")
   
 }
 
-class Json(private[json] val json: Any, path: Vector[Either[Int, String]] = Vector())
-    extends Dynamic {
+class Json(private[json] val json: Any, path: Vector[Either[Int, String]] = Vector())(implicit
+    val parser: JsonParser[_]) extends Dynamic {
+
+  def $accessInnerJsonMap(k: String): Any = parser.getObject(json)(k)
 
   override def equals(any: Any) = any match {
     case any: Json => json == any.json
@@ -133,64 +143,62 @@ class Json(private[json] val json: Any, path: Vector[Either[Int, String]] = Vect
     new Json(json, Right(key) +: path)
  
   private[json] def normalize: Any = {
-    yCombinator[(Any, Vector[Either[Int, String]]), Any] { fn => v => v match {
-      case (j, Vector()) => j
-      case (j, t :+ Left(i)) =>
-        fn(try j.asInstanceOf[List[Any]](i) catch {
-          case e: ClassCastException =>
-            throw MissingValueException(path.drop(t.length))
-          case e: IndexOutOfBoundsException =>
-            throw MissingValueException(path.drop(t.length))
-        }, t)
+    yCombinator[(Any, Vector[Either[Int, String]]), Any] { fn => _ match {
+      case (j, Vector()) => j: Any
       case (j, t :+ Right(k)) =>
-        fn(try j.asInstanceOf[Map[String, Any]](k) catch {
-          case e: ClassCastException =>
-            throw MissingValueException(path.drop(t.length))
-          case e: NoSuchElementException =>
-            throw MissingValueException(path.drop(t.length))
-        }, t)
-        
+        fn(j match {
+          case obj: Map[String, _] if obj contains k => obj(k)
+          case obj: Map[_, _] => throw MissingValueException(path.drop(t.length))
+          case _ => throw TypeMismatchException(path.drop(t.length))
+        }, t): Any
+      case (j, t :+ Left(i)) =>
+        fn(j match {
+          case list: List[_] if i >= 0 && i < list.length => list(i)
+          case _: List[_] => throw MissingValueException(path.drop(t.length))
+          case _ => throw TypeMismatchException(path.drop(t.length))
+        }, t): Any
     } } (json -> path)
   }
 
   /** Assumes the Json object is wrapping a `T`, and casts (intelligently) to that type. */
   def get[T](implicit eh: ExceptionHandler, ext: Extractor[T]): eh.![T, JsonGetException] =
-    eh.wrap(try ext.construct(if(ext.errorToNull)
-          (try normalize catch { case e: Exception => null }) else normalize) catch {
+    eh.wrap(try ext.rawConstruct(if(ext.errorToNull)
+          (try normalize catch { case e: Exception => null }) else normalize, parser) catch {
         case e: MissingValueException => throw e
-        case e: Exception => throw TypeMismatchException(path)
+        //case e: Exception => throw TypeMismatchException(path)
       })
 
-  /** Assumes the Json object is wrapping a List, and returns an iterator over the list */
-  def iterator: Iterator[Json] = json.asInstanceOf[List[Json]].iterator
-
   override def toString =
-    try Json.format(Some(normalize), 0) catch {
+    try Json.format(Some(normalize), 0, parser) catch {
       case e: JsonGetException => "<error>"
     }
 }
 
+object Jsonized {
+  implicit def toJsonized[T: Jsonizer](t: T) = Jsonized(implicitly[Jsonizer[T]].jsonize(t))
+}
+case class Jsonized(value: Any)
+
 class JsonBuffer(private[json] val json: Any, path: Vector[Either[Int, String]] = Vector())
-    extends Dynamic {
+    (implicit val parser: JsonBufferParser[_]) extends Dynamic {
   /** Updates the element `key` of the JSON object with the value `v` */
-  def updateDynamic(key: String)(v: Any): Unit =
-    normalize(false, true).asInstanceOf[HashMap[String, Any]](key) = v
+  def updateDynamic(key: String)(v: Jsonized): Unit =
+    parser.setMutableObjectValue(normalize(false, true), key, parser.toMutable(v.value))
  
   /** Updates the `i`th element of the JSON array with the value `v` */
-  def update(i: Int, v: Any): Unit =
-    normalize(true, true).asInstanceOf[ListBuffer[Any]](i) = v
+  def update[T: Jsonizer](i: Int, v: T): Unit =
+    parser.setMutableArrayValue(normalize(true, true), i,
+        parser.toMutable(implicitly[Jsonizer[T]].jsonize(v)))
 
   /** Removes the specified key from the JSON object */
-  def -=(k: String): Unit =
-    normalize(false, true).asInstanceOf[HashMap[String, Any]].remove(k)
+  def -=(k: String): Unit = parser.removeMutableObjectValue(normalize(false, true), k)
 
   /** Adds the specified value to the JSON array */
-  def +=(v: Any): Unit = normalize(true, true).asInstanceOf[ListBuffer[Any]] += v
+  def +=(v: Any): Unit = parser.addMutableArrayValue(normalize(true, true), v)
 
   /** Assumes the Json object is wrapping a ListBuffer, and extracts the `i`th element from
     * the list */
-  def apply(i: Int): JsonBuffer =
-    new JsonBuffer(json, Left(i) +: path)
+  def apply(i: Int): JsonBuffer = new JsonBuffer(json, Left(i) +: path)
  
   /** Combines a `selectDynamic` and an `apply`.  This is necessary due to the way dynamic
     * application is expanded. */
@@ -206,12 +214,12 @@ class JsonBuffer(private[json] val json: Any, path: Vector[Either[Int, String]] 
     new JsonBuffer(json, Right(key) +: path)
  
   private[json] def normalize(array: Boolean, modify: Boolean): Any = {
-    yCombinator[(Any, Vector[Either[Int, String]]), Any] { fn => v => v match {
+    yCombinator[(Any, Vector[Either[Int, String]]), Any] { fn => _ match {
       case (j, Vector()) => j
       case (j, Left(i) +: t) =>
         fn(try j.asInstanceOf[ListBuffer[Any]](i) catch {
           case e: ClassCastException =>
-            throw MissingValueException(path.drop(t.length))
+            throw TypeMismatchException(path.drop(t.length))
           case e: IndexOutOfBoundsException =>
             throw MissingValueException(path.drop(t.length))
         }, t)
@@ -222,7 +230,7 @@ class JsonBuffer(private[json] val json: Any, path: Vector[Either[Int, String]] 
           else j.asInstanceOf[HashMap[String, Any]](k)
         } catch {
           case e: ClassCastException =>
-            throw MissingValueException(path.drop(t.length))
+            throw TypeMismatchException(path.drop(t.length))
           case e: NoSuchElementException =>
             throw MissingValueException(path.drop(t.length))
         }, t)
@@ -232,34 +240,31 @@ class JsonBuffer(private[json] val json: Any, path: Vector[Either[Int, String]] 
 
   /** Assumes the Json object is wrapping a `T`, and casts (intelligently) to that type. */
   def get[T](implicit ext: Extractor[T], eh: ExceptionHandler): eh.![T, JsonGetException] =
-    eh.wrap(try ext.construct(if(ext.errorToNull)
-        (try normalize(false, false) catch { case e: Exception => null }) else
-        normalize(false, false)) catch {
-      case e: MissingValueException => throw e
-      case e: Exception => throw TypeMismatchException(path)
-    })
-
-  /** Assumes the Json object is wrapping a List, and returns an iterator over the list */
-  def iterator: Iterator[JsonBuffer] =
-    normalize(true, false).asInstanceOf[ListBuffer[JsonBuffer]].iterator
+    eh wrap {
+      try ext.rawConstruct(if(ext.errorToNull) (try normalize(false, false) catch {
+        case e: Exception => null
+      }) else normalize(false, false), parser) catch {
+        case e: MissingValueException => throw e
+        case e: Exception => throw TypeMismatchException(path)
+      }
+    }
 
   override def toString =
-    try Json.format(Some(normalize(false, false)), 0) catch {
+    try JsonBuffer.format(Some(normalize(false, false)), 0, parser) catch {
       case e: JsonGetException => "<error>"
     }
 }
 
-class JsonExtractor[T](cast: Json => T) extends BasicExtractor[T](x => cast(new Json(x)))
+class AnyExtractor[T](cast: Json => T) extends BasicExtractor[T](x => cast(x))
 
-case class BasicExtractor[T](val cast: Any => T) extends Extractor[T] {
-  def construct(any: Any) = cast(any)
+case class BasicExtractor[T](val cast: Json => T) extends Extractor[T] {
+  def construct(js: Json) = cast(js)
 }
 
 case class CascadeExtractor[T](casts: (Json => T)*) extends Extractor[T] {
-  def construct(any: Any) = {
-    val json = new Json(any)
+  def construct(js: Json) = {
     (casts.foldLeft(None: Option[T]) { case (v, next) =>
-      v orElse { try Some(next(json)) catch { case e: Exception => None } }
+      v orElse { try Some(next(js)) catch { case e: Exception => None } }
     }).get
   }
 }
@@ -274,8 +279,8 @@ object JsonGetException {
 sealed class JsonGetException(msg: String) extends RuntimeException(msg)
 
 case class TypeMismatchException(path: Vector[Either[Int, String]])
-  extends JsonGetException("Type mismatch: json"+JsonGetException.stringifyPath(path))
+  extends JsonGetException(s"Type mismatch: json${JsonGetException.stringifyPath(path)}")
 
 case class MissingValueException(path: Vector[Either[Int, String]])
-  extends JsonGetException("Missing value: json"+JsonGetException.stringifyPath(path))
+  extends JsonGetException(s"Missing value: json${JsonGetException.stringifyPath(path)}")
 

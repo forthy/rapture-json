@@ -80,29 +80,43 @@ object `package` extends MacroImplicits {
 
   /** Companion object for Extractor type. Defines very simple extractor methods for different
     * types which may be contained within. */
-  implicit val noopExtractor = BasicExtractor[Json](x => new Json(x))
-  implicit val noopExtractor2 = BasicExtractor[JsonBuffer](x => new JsonBuffer(x))
-  implicit val stringExtractor = BasicExtractor[String](_.asInstanceOf[String])
-  implicit val doubleExtractor = BasicExtractor[Double](_.asInstanceOf[Double])
-  implicit val floatExtractor = BasicExtractor[Float](_.asInstanceOf[Float])
-  implicit val intExtractor = BasicExtractor[Int]({ x => try x.asInstanceOf[Int] catch {
-      case e: ClassCastException => x.asInstanceOf[Double].toInt } })
+  implicit val noopExtractor = BasicExtractor[Json](identity)
+  implicit def noopExtractor2(implicit parser: JsonBufferParser[String]) =
+    BasicExtractor[JsonBuffer](x => JsonBuffer.parse(x.toString)(parser,
+        strategy.throwExceptions))
   
-  implicit val byteExtractor = BasicExtractor[Byte]({ x =>
-    try x.asInstanceOf[Int].toByte catch {
-      case e: ClassCastException => x.asInstanceOf[Double].toByte
-    }
-  })
+  implicit val stringExtractor = BasicExtractor[String](x =>
+      x.parser.getString(x.json))
   
-  implicit val longExtractor = BasicExtractor[Long](_.asInstanceOf[Double].toLong)
-  implicit val shortExtractor = BasicExtractor[Short](_.asInstanceOf[Double].toShort)
-  implicit val booleanExtractor = BasicExtractor[Boolean](_.asInstanceOf[Boolean])
-  implicit val anyExtractor = BasicExtractor[Any](identity)
+  implicit val doubleExtractor = BasicExtractor[Double](x =>
+      x.parser.getDouble(x.json))
+  
+  implicit val floatExtractor = BasicExtractor[Float](x =>
+      x.parser.getDouble(x.json).toFloat)
+
+  implicit val shortExtractor = BasicExtractor[Short](x =>
+      x.parser.getDouble(x.json).toShort)
+
+  implicit val intExtractor = BasicExtractor[Int](x =>
+      x.parser.getDouble(x.json).toInt)
+
+  implicit val longExtractor = BasicExtractor[Long](x =>
+      x.parser.getDouble(x.json).toLong)
+
+  implicit val byteExtractor = BasicExtractor[Byte](x =>
+      x.parser.getDouble(x.json).toInt.toByte)
+
+  implicit val booleanExtractor = BasicExtractor[Boolean](x =>
+      x.parser.getBoolean(x.json))
+
+  implicit val anyExtractor = BasicExtractor[Any](_.json)
   
   def listExtractor[T: Extractor]: Extractor[List[T]] =
-    BasicExtractor[List[T]](_.asInstanceOf[Seq[Any]].to[List] map { x =>
-      implicitly[Extractor[T]].construct(x)
-    })
+    BasicExtractor[List[T]](x =>
+      x.parser.getArray(x).to[List] map { y =>
+        implicitly[Extractor[T]].rawConstruct(y, x.parser)
+      }
+    )
  
   implicit def genSeqExtractor[T, Coll[_]](implicit cbf:
       scala.collection.generic.CanBuildFrom[Nothing, T, Coll[T]], ext: Extractor[T]):
@@ -112,14 +126,15 @@ object `package` extends MacroImplicits {
     })
 
   implicit def optionExtractor[T](implicit ext: Extractor[T]): Extractor[Option[T]] =
-    new BasicExtractor[Option[T]](x => if(x == null) None else Some(x.asInstanceOf[Any]).map(
-        ext.construct)) {
-      override def errorToNull = true
-    }
+    new BasicExtractor[Option[T]](x =>
+      if(x.json == null) None else Some(x.json: Any) map (ext.rawConstruct(_, x.parser))
+    ) { override def errorToNull = true }
   
   implicit def mapExtractor[T](implicit ext: Extractor[T]): Extractor[Map[String, T]] =
-    BasicExtractor[Map[String, T]](_.asInstanceOf[scala.collection.Map[String, Any]].
-        toMap.mapValues(ext.construct))
-
+    BasicExtractor[Map[String, T]](x =>
+      x.parser.getObject(x.json) mapValues { y =>
+        ext.rawConstruct(y, x.parser)
+      }
+    )
 }
 
