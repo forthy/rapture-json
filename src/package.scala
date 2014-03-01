@@ -6,7 +6,7 @@
 *                                                                                              *
 *   http://rapture.io/                                                                         *
 *                                                                                              *
-* Copyright 2010-2013 Jon Pretty, Propensive Ltd.                                              *
+* Copyright 2010-2014 Jon Pretty, Propensive Ltd.                                              *
 *                                                                                              *
 * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file    *
 * except in compliance with the License. You may obtain a copy of the License at               *
@@ -111,18 +111,11 @@ object `package` extends MacroImplicits {
 
   implicit val anyExtractor = BasicExtractor[Any](_.json)
   
-  def listExtractor[T: Extractor]: Extractor[List[T]] =
-    BasicExtractor[List[T]](x =>
-      x.parser.getArray(x).to[List] map { y =>
-        implicitly[Extractor[T]].rawConstruct(y, x.parser)
-      }
-    )
- 
   implicit def genSeqExtractor[T, Coll[_]](implicit cbf:
       scala.collection.generic.CanBuildFrom[Nothing, T, Coll[T]], ext: Extractor[T]):
       Extractor[Coll[T]] =
     BasicExtractor[Coll[T]]({ x =>
-      listExtractor[T](ext).construct(x).to[Coll]
+      x.parser.getArray(x.json).to[List].map(ext.rawConstruct(_, x.parser)).to[Coll]
     })
 
   implicit def optionExtractor[T](implicit ext: Extractor[T]): Extractor[Option[T]] =
@@ -132,9 +125,7 @@ object `package` extends MacroImplicits {
   
   implicit def mapExtractor[T](implicit ext: Extractor[T]): Extractor[Map[String, T]] =
     BasicExtractor[Map[String, T]](x =>
-      x.parser.getObject(x.json) mapValues { y =>
-        ext.rawConstruct(y, x.parser)
-      }
+      x.parser.getObject(x.json) mapValues (ext.rawConstruct(_, x.parser))
     )
 }
 

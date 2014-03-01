@@ -1,4 +1,24 @@
-rapture-json
+Rapture JSON
 ============
 
-JSON Libraries for Scala
+Scala libraries for working with JSON.
+
+Description
+-----------
+
+Overview
+
+Features
+
+Documentation
+-------------
+
+Scaladocs and a tutorial are available.
+
+Download
+--------
+
+Rapture JSON requires Rapture Core. If you want to use Jackson for JSON parsing, Jackson 1.9 will also be required.
+
+Build from source
+-----------------

@@ -6,7 +6,7 @@
 *                                                                                              *
 *   http://rapture.io/                                                                         *
 *                                                                                              *
-* Copyright 2010-2013 Jon Pretty, Propensive Ltd.                                              *
+* Copyright 2010-2014 Jon Pretty, Propensive Ltd.                                              *
 *                                                                                              *
 * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file    *
 * except in compliance with the License. You may obtain a copy of the License at               *
@@ -23,9 +23,11 @@ package rapture.json
 import rapture.core._
 
 import scala.collection.mutable.{ListBuffer, HashMap}
+import scala.collection.JavaConverters
 
 object jsonParsers {
   implicit val scalaJson = ScalaJsonParser
+  implicit val jackson = JacksonParser
 }
 
 /** Represents a JSON parser implementation which is used throughout this library */
@@ -55,6 +57,15 @@ trait JsonParser[Source] {
   def getObject(obj: Any): Map[String, Any]
   def getArray(array: Any): Seq[Any]
 
+  def dereferenceObject(obj: Any, element: String): Any =
+    getObject(obj)(element)
+  
+  def getKeys(obj: Any): Iterator[String] =
+    getObject(obj).keys.iterator
+  
+  def dereferenceArray(array: Any, element: Int): Any =
+    getArray(array)(element)
+
   def isBoolean(any: Any): Boolean
   def isString(any: Any): Boolean
   def isNumber(any: Any): Boolean
@@ -81,11 +92,131 @@ trait JsonBufferParser[T] extends JsonParser[T] {
   def toMutable(any: Any): Any
 }
 
+/** A type class for Jackson parsing */
+object JacksonParser extends JsonParser[String] {
+  
+  import org.codehaus.jackson
+  import jackson._
+  import scala.collection.JavaConversions._
+
+  private val mapper = new map.ObjectMapper()
+  
+  type JsonBoolean = Boolean
+  type JsonString = String
+  type JsonNumber = Double
+  type JsonArray = JsonNode
+  type JsonObject = JsonNode
+  type JsonNull = Null
+
+  type JsonBufferObject = JsonNode
+  type JsonBufferArray = JsonNode
+
+  def getArray(array: Any): List[Any] = array match {
+    case list: JsonNode if list.isArray => list.getElements.to[List]
+    case _ => throw TypeMismatchException(Vector())
+  }
+
+  def getBoolean(boolean: Any): Boolean = boolean match {
+    case boolean: JsonNode if boolean.isBoolean => boolean.asBoolean
+    case _ => throw TypeMismatchException(Vector())
+  }
+  
+  def getDouble(any: Any): Double = any match {
+    case number: JsonNode if number.isNumber => number.asDouble
+    case _ => throw TypeMismatchException(Vector())
+  }
+  
+  def getString(string: Any): String = string match {
+    case string: JsonNode if string.isTextual => string.asText
+    case _ => throw TypeMismatchException(Vector())
+  }
+  
+  def getObject(obj: Any): Map[String, Any] = obj match {
+    case obj: JsonNode if obj.isObject =>
+      (obj.getFieldNames map { case k => k -> obj.get(k) }).toMap
+    case _ => throw TypeMismatchException(Vector())
+  }
+  
+  override def dereferenceObject(obj: Any, element: String): Any = obj match {
+    case obj: JsonNode if obj.isObject => obj.get(element)
+    case _ => throw TypeMismatchException(Vector())
+  }
+
+  override def getKeys(obj: Any): Iterator[String] = obj match {
+    case obj: JsonNode if obj.isObject => obj.getFieldNames.to[Iterator]
+    case _ => throw TypeMismatchException(Vector())
+  }
+
+  override def dereferenceArray(array: Any, element: Int): Any = array match {
+    case array: JsonNode if array.isArray=> array.get(element)
+    case _ => throw TypeMismatchException(Vector())
+  }
+
+  def getMutableArray(array: JsonNode): JsonNode = array match {
+    case array: JsonNode => array
+    case _ => throw TypeMismatchException(Vector())
+  }
+
+  def getMutableObject(obj: JsonNode): Map[String, Any] = obj match {
+    case obj: JsonNode if obj.isObject =>
+      (obj.getFieldNames map { case k => k -> obj.get(k) }).toMap
+    case _ => throw TypeMismatchException(Vector())
+  }
+
+  def setMutableObjectValue(obj: JsonNode, name: String, value: JsonNode): Unit = ???
+  
+  def removeMutableObjectValue(obj: JsonNode, name: String): Unit = ???
+  
+  def addMutableArrayValue(array: JsonNode, value: JsonNode): Unit = ???
+  
+  def setMutableArrayValue(array: JsonNode, index: Int, value: JsonNode): Unit = ???
+
+  def isBoolean(any: Any): Boolean = any match {
+    case x: JsonNode if x.isBoolean => true
+    case _ => false
+  }
+  
+  def isString(any: Any): Boolean = any match {
+    case x: JsonNode if x.isTextual => true
+    case _ => false
+  }
+
+  def isNumber(any: Any): Boolean = any match {
+    case x: JsonNode if x.isNumber => true
+    case _ => false
+  }
+  
+  def isObject(any: Any): Boolean = any match {
+    case x: JsonNode if x.isObject => true
+    case _ => false
+  }
+  
+  def isArray(any: Any): Boolean = any match {
+    case x: JsonNode if x.isArray => true
+    case _ => false
+  }
+  
+  def isNull(any: Any): Boolean = any match {
+    case x: JsonNode if x.isNull => true
+    case _ => false
+  }
+  
+  def isMutableArray(any: JsonNode): Boolean = 
+    typeTest { case n: JsonNode if n.isArray => () } (any)
+  
+  def isMutableObject(any: JsonNode): Boolean =
+    typeTest { case n: JsonNode if n.isObject => () } (any)
+  
+  def toMutable(any: JsonNode): JsonNode = any
+  
+  def parse(s: String): Option[Any] = Some(mapper.readTree(s))
+}
+
 /** The default JSON parser implementation */
 object ScalaJsonParser extends JsonBufferParser[String] {
   
   import scala.util.parsing.json._
-  
+
   type JsonBoolean = Boolean
   type JsonString = String
   type JsonNumber = Double
@@ -122,32 +253,32 @@ object ScalaJsonParser extends JsonBufferParser[String] {
   }
   
   def getMutableArray(array: Any): List[Any] = array match {
-    case array: ListBuffer[Any] => array.to[List]
+    case array: ListBuffer[t] => array.to[List]
     case _ => throw TypeMismatchException(Vector())
   }
 
   def getMutableObject(obj: Any): Map[String, Any] = obj match {
-    case obj: HashMap[String, Any] => obj.toMap
+    case obj: HashMap[_, _] => obj.asInstanceOf[HashMap[String, Any]].toMap
     case _ => throw TypeMismatchException(Vector())
   }
 
   def setMutableObjectValue(obj: Any, name: String, value: Any): Unit = obj match {
-    case obj: HashMap[String, Any] => obj(name) = value
+    case obj: HashMap[_, _] => obj.asInstanceOf[HashMap[String, Any]](name) = value
     case _ => throw TypeMismatchException(Vector())
   }
   
   def removeMutableObjectValue(obj: Any, name: String): Unit = obj match {
-    case obj: HashMap[String, Any] => obj.remove(name)
+    case obj: HashMap[_, _] => obj.asInstanceOf[HashMap[String, Any]].remove(name)
     case _ => throw TypeMismatchException(Vector())
   }
   
   def addMutableArrayValue(array: Any, value: Any): Unit = array match {
-    case array: ListBuffer[Any] => array += value
+    case array: ListBuffer[_] => array.asInstanceOf[ListBuffer[Any]] += value
     case _ => throw TypeMismatchException(Vector())
   }
   
   def setMutableArrayValue(array: Any, index: Int, value: Any): Unit = array match {
-    case array: ListBuffer[Any] => array(index) = value
+    case array: ListBuffer[_] => array.asInstanceOf[ListBuffer[Any]](index) = value
     case _ => throw TypeMismatchException(Vector())
   }
   

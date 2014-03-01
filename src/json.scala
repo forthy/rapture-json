@@ -6,7 +6,7 @@
 *                                                                                              *
 *   http://rapture.io/                                                                         *
 *                                                                                              *
-* Copyright 2010-2013 Jon Pretty, Propensive Ltd.                                              *
+* Copyright 2010-2014 Jon Pretty, Propensive Ltd.                                              *
 *                                                                                              *
 * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file    *
 * except in compliance with the License. You may obtain a copy of the License at               *
@@ -75,6 +75,8 @@ object Json {
 
   def wrapDynamic(any: Any)(implicit parser: JsonParser[_]) = new Json(any)
 
+  def extractDynamic(json: Json) = json.json
+
   def unapply(json: Any)(implicit parser: JsonParser[_]): Option[Json] = Some(new Json(json))
 
   def format(json: Json): String = format(Some(json.json), 0, json.parser)
@@ -99,9 +101,11 @@ object Json {
             s"${indent}${pad}${format(Some(v), ln + 1, parser)}"
           } mkString s",${brk}", s"${indent}]") mkString brk
         } else if(parser.isObject(j)) {
-          val o = parser.getObject(j)
-          List("{", o.keys map { k =>
-            s"""${indent}${pad}"${k}":${pad}${format(o.get(k), ln + 1, parser)}"""
+          List("{", parser.getKeys(j) map { k =>
+            val inner = try Some(parser.dereferenceObject(j, k)) catch {
+              case e: Exception => None
+            }
+            s"""${indent}${pad}"${k}":${pad}${format(inner, ln + 1, parser)}"""
           } mkString s",${brk}", s"${indent}}") mkString brk
         } else if(parser.isNull(j)) "null"
         else "undefined"
@@ -115,7 +119,7 @@ object Json {
 class Json(private[json] val json: Any, path: Vector[Either[Int, String]] = Vector())(implicit
     val parser: JsonParser[_]) extends Dynamic {
 
-  def $accessInnerJsonMap(k: String): Any = parser.getObject(json)(k)
+  def $accessInnerJsonMap(k: String): Any = parser.dereferenceObject(json, k)
 
   override def equals(any: Any) = any match {
     case any: Json => json == any.json
@@ -146,17 +150,21 @@ class Json(private[json] val json: Any, path: Vector[Either[Int, String]] = Vect
     yCombinator[(Any, Vector[Either[Int, String]]), Any] { fn => _ match {
       case (j, Vector()) => j: Any
       case (j, t :+ Right(k)) =>
-        fn(j match {
-          case obj: Map[String, _] if obj contains k => obj(k)
-          case obj: Map[_, _] => throw MissingValueException(path.drop(t.length))
-          case _ => throw TypeMismatchException(path.drop(t.length))
-        }, t): Any
+        fn({
+          if(parser.isObject(j)) {
+            try parser.dereferenceObject(j, k) catch {
+              case e: Exception => throw MissingValueException(path.drop(t.length))
+            }
+          } else throw TypeMismatchException(path.drop(t.length))
+        }, t)
       case (j, t :+ Left(i)) =>
-        fn(j match {
-          case list: List[_] if i >= 0 && i < list.length => list(i)
-          case _: List[_] => throw MissingValueException(path.drop(t.length))
-          case _ => throw TypeMismatchException(path.drop(t.length))
-        }, t): Any
+        fn((
+          if(parser.isArray(j)) {
+            try parser.dereferenceArray(j, i) catch {
+              case e: Exception => throw MissingValueException(path.drop(t.length))
+            }
+          } else throw TypeMismatchException(path.drop(t.length))
+        , t))
     } } (json -> path)
   }
 
@@ -170,7 +178,7 @@ class Json(private[json] val json: Any, path: Vector[Either[Int, String]] = Vect
 
   override def toString =
     try Json.format(Some(normalize), 0, parser) catch {
-      case e: JsonGetException => "<error>"
+      case e: JsonGetException => "undefined"
     }
 }
 
@@ -251,7 +259,7 @@ class JsonBuffer(private[json] val json: Any, path: Vector[Either[Int, String]] 
 
   override def toString =
     try JsonBuffer.format(Some(normalize(false, false)), 0, parser) catch {
-      case e: JsonGetException => "<error>"
+      case e: JsonGetException => "undefined"
     }
 }
 
