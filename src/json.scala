@@ -116,7 +116,7 @@ object Json {
   
 }
 
-class Json(private[json] val json: Any, path: Vector[Either[Int, String]] = Vector())(implicit
+class Json(val json: Any, path: Vector[Either[Int, String]] = Vector())(implicit
     val parser: JsonParser[_]) extends Dynamic {
 
   def $accessInnerJsonMap(k: String): Any = parser.dereferenceObject(json, k)
