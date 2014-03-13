@@ -25,10 +25,12 @@ import rapture.core._
 import scala.collection.mutable.{ListBuffer, HashMap}
 import scala.collection.JavaConverters
 
-object jsonParsers {
-  implicit val scalaJson = ScalaJsonParser
-  implicit val jackson = JacksonParser
-  implicit val jawn = JawnParser
+package jsonParsers {
+  package scalaJson {
+    object `package` {
+      implicit val scalaJson = ScalaJsonParser
+    }
+  }
 }
 
 /** Represents a JSON parser implementation which is used throughout this library */
@@ -192,127 +194,6 @@ object JacksonParser extends JsonParser[String] {
   def toMutable(any: JsonNode): JsonNode = any
   
   def parse(s: String): Option[Any] = Some(mapper.readTree(s))
-}
-
-object JawnParser extends JsonBufferParser[String] {
- 
-  import jawn._
-
-  override def dereferenceObject(obj: Any, element: String): Any =
-    obj match {
-      case JObject(obj) => obj(element)
-    }
-  
-  override def getKeys(obj: Any): Iterator[String] =
-    obj match {
-      case JObject(obj) => obj.keys.iterator
-    }
-  
-  override def dereferenceArray(array: Any, element: Int): Any =
-    array match {
-      case JArray(arr) => arr(element)
-    }
-
-  def getArray(array: Any): List[Any] = array match {
-    case JArray(xs)=> xs.toList
-    case _ => throw TypeMismatchException(Vector())
-  }
-
-  def getBoolean(boolean: Any): Boolean = boolean match {
-    case boolean: Boolean => boolean
-    case JTrue => true
-    case JFalse => false
-    case _ => throw TypeMismatchException(Vector())
-  }
-  
-  def getDouble(double: Any): Double = double match {
-    case DoubleNum(d) => d
-    case LongNum(v) => v.toDouble
-    case DeferNum(v) => v.toDouble
-    case _ => throw TypeMismatchException(Vector())
-  }
-  
-  def getString(string: Any): String = string match {
-    case JString(s) => s
-    case _ => throw TypeMismatchException(Vector())
-  }
-  
-  def getObject(obj: Any): Map[String, Any] = obj match {
-    case JObject(o) => o.toMap
-    case _ => throw TypeMismatchException(Vector())
-  }
-  
-  def getMutableArray(array: Any): List[Any] = array match {
-    case array: ListBuffer[t] => array.to[List]
-    case _ => throw TypeMismatchException(Vector())
-  }
-
-  def getMutableObject(obj: Any): Map[String, Any] = obj match {
-    case obj: HashMap[_, _] => obj.asInstanceOf[HashMap[String, Any]].toMap
-    case _ => throw TypeMismatchException(Vector())
-  }
-
-  def setMutableObjectValue(obj: Any, name: String, value: Any): Unit = obj match {
-    case obj: HashMap[_, _] => obj.asInstanceOf[HashMap[String, Any]](name) = value
-    case _ => throw TypeMismatchException(Vector())
-  }
-  
-  def removeMutableObjectValue(obj: Any, name: String): Unit = obj match {
-    case obj: HashMap[_, _] => obj.asInstanceOf[HashMap[String, Any]].remove(name)
-    case _ => throw TypeMismatchException(Vector())
-  }
-  
-  def addMutableArrayValue(array: Any, value: Any): Unit = array match {
-    case array: ListBuffer[_] => array.asInstanceOf[ListBuffer[Any]] += value
-    case _ => throw TypeMismatchException(Vector())
-  }
-  
-  def setMutableArrayValue(array: Any, index: Int, value: Any): Unit = array match {
-    case array: ListBuffer[_] => array.asInstanceOf[ListBuffer[Any]](index) = value
-    case _ => throw TypeMismatchException(Vector())
-  }
-  
-  def isArray(array: Any): Boolean = array match {
-    case JArray(xs)=> true
-    case _ => false
-  }
-
-  def isBoolean(boolean: Any): Boolean = boolean match {
-    case JTrue | JFalse => true
-    case _ => false
-  }
-  
-  def isNumber(num: Any): Boolean = num match {
-    case DoubleNum(_) | LongNum(_) | DeferNum(_) => true
-    case _ => false
-  }
-  
-  def isString(string: Any): Boolean = string match {
-    case JString(_) => true
-    case _ => false
-  }
-  
-  def isObject(obj: Any): Boolean = obj match {
-    case JObject(_) => true
-    case _ => false
-  }
-  
-  def isNull(obj: Any): Boolean = obj match {
-    case JNull => true
-    case _ => false
-  }
-  
-  
-  def isMutableArray(any: Any): Boolean = typeTest { case _: ListBuffer[_] => () } (any)
-  def isMutableObject(any: Any): Boolean = typeTest { case _: HashMap[_, _] => () } (any)
-  
-  def toMutable(any: Any): Any = any match {
-    case list: List[t] => list.map(toMutable).to[ListBuffer]
-    case map: Map[k, v] => HashMap.empty ++ map.mapValues(toMutable)
-    case other => other
-  }
-  
-  def parse(s: String): Option[Any] = jawn.JParser.parseFromString(s).right.toOption
 }
 
 /** The default JSON parser implementation */
