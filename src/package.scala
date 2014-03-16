@@ -25,107 +25,16 @@ import rapture.core._
 import language.higherKinds
 import language.experimental.macros
 
-trait MacroImplicits {
-  
+object `package` {
+
   implicit def extractorMacro[T <: Product]: Extractor[T] =
     macro Macros.extractorMacro[T]
   
   implicit def jsonizerMacro[T <: Product]: Jsonizer[T] =
     macro Macros.jsonizerMacro[T]
   
-}
-
-object `package` extends MacroImplicits {
-
-  implicit val intJsonizer: Jsonizer[Int] =
-    new Jsonizer[Int] { def jsonize(i: Int) = i.toDouble }
-  
-  implicit val booleanJsonizer: Jsonizer[Boolean] =
-    new Jsonizer[Boolean] { def jsonize(b: Boolean) = b }
-  
-  implicit val stringJsonizer: Jsonizer[String] =
-    new Jsonizer[String] { def jsonize(s: String) = s }
-  
-  implicit val floatJsonizer: Jsonizer[Float] =
-    new Jsonizer[Float] { def jsonize(f: Float) = f }
-  
-  implicit val doubleJsonizer: Jsonizer[Double] =
-    new Jsonizer[Double] { def jsonize(d: Double) = d }
-  
-  implicit val longJsonizer: Jsonizer[Long] =
-    new Jsonizer[Long] { def jsonize(l: Long) = l.toDouble }
-  
-  implicit val shortJsonizer: Jsonizer[Short] =
-    new Jsonizer[Short] { def jsonize(s: Short) = s.toDouble }
-  
-  implicit val byteJsonizer: Jsonizer[Byte] =
-    new Jsonizer[Byte] { def jsonize(b: Byte) = b.toDouble }
-  
-  implicit def listJsonizer[T: Jsonizer]: Jsonizer[List[T]] =
-    new Jsonizer[List[T]] { def jsonize(xs: List[T]) = xs.map(implicitly[Jsonizer[T]].jsonize) }
-  
-  implicit def genSeqJsonizer[T: Jsonizer]: Jsonizer[Traversable[T]] =
-    new Jsonizer[Traversable[T]] {
-      def jsonize(xs: Traversable[T]): List[Any] =
-        xs.map(implicitly[Jsonizer[T]].jsonize _).to[List]
-    }
-  
-  implicit def mapJsonizer[T: Jsonizer]: Jsonizer[Map[String, T]] =
-    new Jsonizer[Map[String, T]] {
-      def jsonize(m: Map[String, T]) = m.mapValues(implicitly[Jsonizer[T]].jsonize)
-    }
-  
   implicit def jsonStrings(sc: StringContext)(implicit parser: JsonParser[String]) =
     new JsonStrings(sc)
 
-  /** Companion object for Extractor type. Defines very simple extractor methods for different
-    * types which may be contained within. */
-  implicit val noopExtractor = BasicExtractor[Json](identity)
-  implicit def noopExtractor2(implicit parser: JsonBufferParser[String]) =
-    BasicExtractor[JsonBuffer](x => JsonBuffer.parse(x.toString)(parser,
-        strategy.throwExceptions))
-  
-  implicit val stringExtractor = BasicExtractor[String](x =>
-      x.parser.getString(x.json))
-  
-  implicit val doubleExtractor = BasicExtractor[Double](x =>
-      x.parser.getDouble(x.json))
-  
-  implicit val floatExtractor = BasicExtractor[Float](x =>
-      x.parser.getDouble(x.json).toFloat)
-
-  implicit val shortExtractor = BasicExtractor[Short](x =>
-      x.parser.getDouble(x.json).toShort)
-
-  implicit val intExtractor = BasicExtractor[Int](x =>
-      x.parser.getDouble(x.json).toInt)
-
-  implicit val longExtractor = BasicExtractor[Long](x =>
-      x.parser.getDouble(x.json).toLong)
-
-  implicit val byteExtractor = BasicExtractor[Byte](x =>
-      x.parser.getDouble(x.json).toInt.toByte)
-
-  implicit val booleanExtractor = BasicExtractor[Boolean](x =>
-      x.parser.getBoolean(x.json))
-
-  implicit val anyExtractor = BasicExtractor[Any](_.json)
-  
-  implicit def genSeqExtractor[T, Coll[_]](implicit cbf:
-      scala.collection.generic.CanBuildFrom[Nothing, T, Coll[T]], ext: Extractor[T]):
-      Extractor[Coll[T]] =
-    BasicExtractor[Coll[T]]({ x =>
-      x.parser.getArray(x.json).to[List].map(ext.rawConstruct(_, x.parser)).to[Coll]
-    })
-
-  implicit def optionExtractor[T](implicit ext: Extractor[T]): Extractor[Option[T]] =
-    new BasicExtractor[Option[T]](x =>
-      if(x.json == null) None else Some(x.json: Any) map (ext.rawConstruct(_, x.parser))
-    ) { override def errorToNull = true }
-  
-  implicit def mapExtractor[T](implicit ext: Extractor[T]): Extractor[Map[String, T]] =
-    BasicExtractor[Map[String, T]](x =>
-      x.parser.getObject(x.json) mapValues (ext.rawConstruct(_, x.parser))
-    )
 }
 
