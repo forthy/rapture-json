@@ -47,26 +47,49 @@ trait JsonParser[Source] {
     }
   } (parse(s).get)) catch { case e: Exception => None }
 
+  /** Extracts a `Boolean` from the parsed JSON. */
   def getBoolean(boolean: Any): Boolean
+
+  /** Extracts a `String` from the parsed JSON. */
   def getString(string: Any): String
+
+  /** Extracts a `Double` from the parsed JSON. */
   def getDouble(number: Any): Double
+
+  /** Extracts a JSON object as a `Map[String, Any]` from the parsed JSON. */
   def getObject(obj: Any): Map[String, Any]
+
+  /** Extracts a JSON array as a `Seq[Any]` from the parsed JSON. */
   def getArray(array: Any): Seq[Any]
 
+  /** Dereferences the named element within the JSON object. */
   def dereferenceObject(obj: Any, element: String): Any =
     getObject(obj)(element)
   
+  /** Returns at `Iterator[String]` over the names of the elements in the JSON object. */
   def getKeys(obj: Any): Iterator[String] =
     getObject(obj).keys.iterator
-  
+ 
+  /** Gets the indexed element from the parsed JSON array. */
   def dereferenceArray(array: Any, element: Int): Any =
     getArray(array)(element)
 
+  /** Tests if the element represents a `Boolean` */
   def isBoolean(any: Any): Boolean
+  
+  /** Tests if the element represents a `String` */
   def isString(any: Any): Boolean
+  
+  /** Tests if the element represents a number */
   def isNumber(any: Any): Boolean
+  
+  /** Tests if the element represents an `Object` */
   def isObject(any: Any): Boolean
+  
+  /** Tests if the element represents an `Array` */
   def isArray(any: Any): Boolean
+  
+  /** Tests if the element represents a `null` */
   def isNull(any: Any): Boolean
 
   protected def typeTest(pf: PartialFunction[Any, Unit])(v: Any) = pf.isDefinedAt(v)
@@ -84,116 +107,6 @@ trait JsonBufferParser[T] extends JsonParser[T] {
   def addMutableArrayValue(array: Any, value: Any): Unit
 
   def toMutable(any: Any): Any
-}
-
-/** A type class for Jackson parsing */
-object JacksonParser extends JsonParser[String] {
-  
-  import org.codehaus.jackson
-  import jackson._
-  import scala.collection.JavaConversions._
-
-  private val mapper = new map.ObjectMapper()
-  
-  def getArray(array: Any): List[Any] = array match {
-    case list: JsonNode if list.isArray => list.getElements.to[List]
-    case _ => throw TypeMismatchException(Vector())
-  }
-
-  def getBoolean(boolean: Any): Boolean = boolean match {
-    case boolean: JsonNode if boolean.isBoolean => boolean.asBoolean
-    case _ => throw TypeMismatchException(Vector())
-  }
-  
-  def getDouble(any: Any): Double = any match {
-    case number: JsonNode if number.isNumber => number.asDouble
-    case _ => throw TypeMismatchException(Vector())
-  }
-  
-  def getString(string: Any): String = string match {
-    case string: JsonNode if string.isTextual => string.asText
-    case _ => throw TypeMismatchException(Vector())
-  }
-  
-  def getObject(obj: Any): Map[String, Any] = obj match {
-    case obj: JsonNode if obj.isObject =>
-      (obj.getFieldNames map { case k => k -> obj.get(k) }).toMap
-    case _ => throw TypeMismatchException(Vector())
-  }
-  
-  override def dereferenceObject(obj: Any, element: String): Any = obj match {
-    case obj: JsonNode if obj.isObject => obj.get(element)
-    case _ => throw TypeMismatchException(Vector())
-  }
-
-  override def getKeys(obj: Any): Iterator[String] = obj match {
-    case obj: JsonNode if obj.isObject => obj.getFieldNames.to[Iterator]
-    case _ => throw TypeMismatchException(Vector())
-  }
-
-  override def dereferenceArray(array: Any, element: Int): Any = array match {
-    case array: JsonNode if array.isArray=> array.get(element)
-    case _ => throw TypeMismatchException(Vector())
-  }
-
-  def getMutableArray(array: JsonNode): JsonNode = array match {
-    case array: JsonNode => array
-    case _ => throw TypeMismatchException(Vector())
-  }
-
-  def getMutableObject(obj: JsonNode): Map[String, Any] = obj match {
-    case obj: JsonNode if obj.isObject =>
-      (obj.getFieldNames map { case k => k -> obj.get(k) }).toMap
-    case _ => throw TypeMismatchException(Vector())
-  }
-
-  def setMutableObjectValue(obj: JsonNode, name: String, value: JsonNode): Unit = ???
-  
-  def removeMutableObjectValue(obj: JsonNode, name: String): Unit = ???
-  
-  def addMutableArrayValue(array: JsonNode, value: JsonNode): Unit = ???
-  
-  def setMutableArrayValue(array: JsonNode, index: Int, value: JsonNode): Unit = ???
-
-  def isBoolean(any: Any): Boolean = any match {
-    case x: JsonNode if x.isBoolean => true
-    case _ => false
-  }
-  
-  def isString(any: Any): Boolean = any match {
-    case x: JsonNode if x.isTextual => true
-    case _ => false
-  }
-
-  def isNumber(any: Any): Boolean = any match {
-    case x: JsonNode if x.isNumber => true
-    case _ => false
-  }
-  
-  def isObject(any: Any): Boolean = any match {
-    case x: JsonNode if x.isObject => true
-    case _ => false
-  }
-  
-  def isArray(any: Any): Boolean = any match {
-    case x: JsonNode if x.isArray => true
-    case _ => false
-  }
-  
-  def isNull(any: Any): Boolean = any match {
-    case x: JsonNode if x.isNull => true
-    case _ => false
-  }
-  
-  def isMutableArray(any: JsonNode): Boolean = 
-    typeTest { case n: JsonNode if n.isArray => () } (any)
-  
-  def isMutableObject(any: JsonNode): Boolean =
-    typeTest { case n: JsonNode if n.isObject => () } (any)
-  
-  def toMutable(any: JsonNode): JsonNode = any
-  
-  def parse(s: String): Option[Any] = Some(mapper.readTree(s))
 }
 
 /** The default JSON parser implementation */
