@@ -33,6 +33,17 @@ package jsonParsers {
   }
 }
 
+object JsonTypes {
+  sealed class JsonType(val name: String)
+  case object Number extends JsonType("number")
+  case object String extends JsonType("string")
+  case object Null extends JsonType("null")
+  case object Boolean extends JsonType("boolean")
+  case object Array extends JsonType("array")
+  case object Object extends JsonType("object")
+  case object Undefined extends JsonType("undefined")
+}
+
 /** Represents a JSON parser implementation which is used throughout this library */
 trait JsonParser[Source] {
   def parse(s: Source): Option[Any]
@@ -92,6 +103,16 @@ trait JsonParser[Source] {
   /** Tests if the element represents a `null` */
   def isNull(any: Any): Boolean
 
+  /** Returns the JsonType instance for the particular type. */
+  def getType(any: Any): JsonTypes.JsonType =
+    if(isBoolean(any)) JsonTypes.Boolean
+    else if(isString(any)) JsonTypes.String
+    else if(isNumber(any)) JsonTypes.Number
+    else if(isObject(any)) JsonTypes.Object
+    else if(isArray(any)) JsonTypes.Array
+    else if(isNull(any)) JsonTypes.Null
+    else JsonTypes.Undefined
+
   protected def typeTest(pf: PartialFunction[Any, Unit])(v: Any) = pf.isDefinedAt(v)
 }
 
@@ -116,57 +137,57 @@ object ScalaJsonParser extends JsonBufferParser[String] {
 
   def getArray(array: Any): List[Any] = array match {
     case list: List[a] => list
-    case _ => throw TypeMismatchException(Vector())
+    case _ => throw TypeMismatchException(getType(array), JsonTypes.Array, Vector())
   }
 
   def getBoolean(boolean: Any): Boolean = boolean match {
     case boolean: Boolean => boolean
-    case _ => throw TypeMismatchException(Vector())
+    case _ => throw TypeMismatchException(getType(boolean), JsonTypes.Boolean, Vector())
   }
   
   def getDouble(double: Any): Double = double match {
     case double: Double => double
-    case _ => throw TypeMismatchException(Vector())
+    case _ => throw TypeMismatchException(getType(double), JsonTypes.Number, Vector())
   }
   
   def getString(string: Any): String = string match {
     case string: String => string
-    case _ => throw TypeMismatchException(Vector())
+    case _ => throw TypeMismatchException(getType(string), JsonTypes.String, Vector())
   }
   
   def getObject(obj: Any): Map[String, Any] = obj match {
     case obj: Map[_, _] => obj collect { case (k: String, v) => k -> v }
-    case _ => throw TypeMismatchException(Vector())
+    case _ => throw TypeMismatchException(getType(obj), JsonTypes.Object, Vector())
   }
   
   def getMutableArray(array: Any): List[Any] = array match {
     case array: ListBuffer[t] => array.to[List]
-    case _ => throw TypeMismatchException(Vector())
+    case _ => throw TypeMismatchException(getType(array), JsonTypes.Array, Vector())
   }
 
   def getMutableObject(obj: Any): Map[String, Any] = obj match {
     case obj: HashMap[_, _] => obj.asInstanceOf[HashMap[String, Any]].toMap
-    case _ => throw TypeMismatchException(Vector())
+    case _ => throw TypeMismatchException(getType(obj), JsonTypes.Object, Vector())
   }
 
   def setMutableObjectValue(obj: Any, name: String, value: Any): Unit = obj match {
     case obj: HashMap[_, _] => obj.asInstanceOf[HashMap[String, Any]](name) = value
-    case _ => throw TypeMismatchException(Vector())
+    case _ => throw TypeMismatchException(getType(obj), JsonTypes.Object, Vector())
   }
   
   def removeMutableObjectValue(obj: Any, name: String): Unit = obj match {
     case obj: HashMap[_, _] => obj.asInstanceOf[HashMap[String, Any]].remove(name)
-    case _ => throw TypeMismatchException(Vector())
+    case _ => throw TypeMismatchException(getType(obj), JsonTypes.Object, Vector())
   }
   
   def addMutableArrayValue(array: Any, value: Any): Unit = array match {
     case array: ListBuffer[_] => array.asInstanceOf[ListBuffer[Any]] += value
-    case _ => throw TypeMismatchException(Vector())
+    case _ => throw TypeMismatchException(getType(array), JsonTypes.Array, Vector())
   }
   
   def setMutableArrayValue(array: Any, index: Int, value: Any): Unit = array match {
     case array: ListBuffer[_] => array.asInstanceOf[ListBuffer[Any]](index) = value
-    case _ => throw TypeMismatchException(Vector())
+    case _ => throw TypeMismatchException(getType(array), JsonTypes.Array, Vector())
   }
   
   

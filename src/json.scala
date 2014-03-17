@@ -155,7 +155,7 @@ class Json(val json: Any, path: Vector[Either[Int, String]] = Vector())(implicit
             try parser.dereferenceObject(j, k) catch {
               case e: Exception => throw MissingValueException(path.drop(t.length))
             }
-          } else throw TypeMismatchException(path.drop(t.length))
+          } else throw TypeMismatchException(parser.getType(j), JsonTypes.Object, path.drop(t.length))
         }, t)
       case (j, t :+ Left(i)) =>
         fn((
@@ -163,7 +163,7 @@ class Json(val json: Any, path: Vector[Either[Int, String]] = Vector())(implicit
             try parser.dereferenceArray(j, i) catch {
               case e: Exception => throw MissingValueException(path.drop(t.length))
             }
-          } else throw TypeMismatchException(path.drop(t.length))
+          } else throw TypeMismatchException(parser.getType(j), JsonTypes.Array, path.drop(t.length))
         , t))
     } } (json -> path)
   }
@@ -227,7 +227,7 @@ class JsonBuffer(private[json] val json: Any, path: Vector[Either[Int, String]] 
       case (j, Left(i) +: t) =>
         fn(try j.asInstanceOf[ListBuffer[Any]](i) catch {
           case e: ClassCastException =>
-            throw TypeMismatchException(path.drop(t.length))
+            throw TypeMismatchException(parser.getType(j), JsonTypes.Array, path.drop(t.length))
           case e: IndexOutOfBoundsException =>
             throw MissingValueException(path.drop(t.length))
         }, t)
@@ -238,7 +238,7 @@ class JsonBuffer(private[json] val json: Any, path: Vector[Either[Int, String]] 
           else j.asInstanceOf[HashMap[String, Any]](k)
         } catch {
           case e: ClassCastException =>
-            throw TypeMismatchException(path.drop(t.length))
+            throw TypeMismatchException(parser.getType(j), JsonTypes.Object, path.drop(t.length))
           case e: NoSuchElementException =>
             throw MissingValueException(path.drop(t.length))
         }, t)
@@ -253,7 +253,7 @@ class JsonBuffer(private[json] val json: Any, path: Vector[Either[Int, String]] 
         case e: Exception => null
       }) else normalize(false, false), parser) catch {
         case e: MissingValueException => throw e
-        case e: Exception => throw TypeMismatchException(path)
+        //case e: Exception => throw TypeMismatchException(parser.getType(), path)
       }
     }
 
@@ -286,8 +286,9 @@ object JsonGetException {
 
 sealed class JsonGetException(msg: String) extends RuntimeException(msg)
 
-case class TypeMismatchException(path: Vector[Either[Int, String]])
-  extends JsonGetException(s"Type mismatch: json${JsonGetException.stringifyPath(path)}")
+case class TypeMismatchException(foundType: JsonTypes.JsonType, expectedType: JsonTypes.JsonType,
+    path: Vector[Either[Int, String]]) extends JsonGetException(
+    s"Type mismatch: Expected ${expectedType.name} but found ${foundType.name} at json${JsonGetException.stringifyPath(path)}")
 
 case class MissingValueException(path: Vector[Either[Int, String]])
   extends JsonGetException(s"Missing value: json${JsonGetException.stringifyPath(path)}")
