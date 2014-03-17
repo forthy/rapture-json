@@ -116,6 +116,7 @@ object Json {
   
 }
 
+/** Represents some parsed JSON. */
 class Json(val json: Any, path: Vector[Either[Int, String]] = Vector())(implicit
     val parser: JsonParser[_]) extends Dynamic {
 
@@ -146,13 +147,14 @@ class Json(val json: Any, path: Vector[Either[Int, String]] = Vector())(implicit
   def selectDynamic(key: String): Json =
     new Json(json, Right(key) +: path)
  
-  private[json] def normalize: Any = {
+  private[json] def normalize: Any =
     yCombinator[(Any, Vector[Either[Int, String]]), Any] { fn => _ match {
       case (j, Vector()) => j: Any
       case (j, t :+ Right(k)) =>
         fn({
           if(parser.isObject(j)) {
             try parser.dereferenceObject(j, k) catch {
+              case TypeMismatchException(f, e, _) => TypeMismatchException(f, e, path.drop(t.length))
               case e: Exception => throw MissingValueException(path.drop(t.length))
             }
           } else throw TypeMismatchException(parser.getType(j), JsonTypes.Object, path.drop(t.length))
@@ -161,19 +163,19 @@ class Json(val json: Any, path: Vector[Either[Int, String]] = Vector())(implicit
         fn((
           if(parser.isArray(j)) {
             try parser.dereferenceArray(j, i) catch {
+              case TypeMismatchException(f, e, _) => TypeMismatchException(f, e, path.drop(t.length))
               case e: Exception => throw MissingValueException(path.drop(t.length))
             }
           } else throw TypeMismatchException(parser.getType(j), JsonTypes.Array, path.drop(t.length))
         , t))
     } } (json -> path)
-  }
 
   /** Assumes the Json object is wrapping a `T`, and casts (intelligently) to that type. */
   def get[T](implicit eh: ExceptionHandler, ext: Extractor[T]): eh.![T, JsonGetException] =
     eh.wrap(try ext.rawConstruct(if(ext.errorToNull)
           (try normalize catch { case e: Exception => null }) else normalize, parser) catch {
+        case TypeMismatchException(f, e, _) => throw TypeMismatchException(f, e, path)
         case e: MissingValueException => throw e
-        //case e: Exception => throw TypeMismatchException(path)
       })
 
   override def toString =
@@ -252,8 +254,8 @@ class JsonBuffer(private[json] val json: Any, path: Vector[Either[Int, String]] 
       try ext.rawConstruct(if(ext.errorToNull) (try normalize(false, false) catch {
         case e: Exception => null
       }) else normalize(false, false), parser) catch {
+        case TypeMismatchException(f, e, _) => throw TypeMismatchException(f, e, path)
         case e: MissingValueException => throw e
-        //case e: Exception => throw TypeMismatchException(parser.getType(), path)
       }
     }
 
