@@ -28,7 +28,7 @@ import scala.collection.JavaConverters
 package jsonParsers {
   package scalaJson {
     object `package` {
-      implicit val scalaJson = ScalaJsonParser
+      implicit val scalaJsonParser = ScalaJsonParser
     }
   }
 }
