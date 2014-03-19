@@ -45,39 +45,42 @@ class JsonStrings(sc: StringContext)(implicit parser: JsonParser[String])
     /** Extracts values in the structure specified from parsed JSON.  Each element in the JSON
       * structure is compared with the JSON to extract from.  Broadly speaking, elements whose
       * values are specified in the extractor must match, whereas variable elements appearing
-      * in the extractor must exist. Lists may not appear in the extractor. */
-    def unapplySeq(json: Json): Option[Seq[Json]] = try {
-      val placeholder = Utils.uniqueNonSubstring(sc.parts.mkString)
-      val PlaceholderNumber = (placeholder+"([0-9]+)"+placeholder).r
-      val next = new Counter(0)
-      val txt = sc.parts.reduceLeft(_ + s""""${placeholder}${next()}${placeholder}" """ + _)
-      
-      val paths: Array[Vector[String]] =
-        Array.fill[Vector[String]](sc.parts.length - 1)(Vector())
-      
-      def extract(struct: Any, path: Vector[String]): Unit = {
-        struct match {
-          case d: Double =>
-            if(json.extract(path).get[Double](raw, Extractor.doubleExtractor) != d)
-              throw new Exception("Value doesn't match")
-          case s: String =>
-            if(json.extract(path).get[String](raw, Extractor.stringExtractor) != s)
-              throw new Exception("Value doesn't match")
-          case m: Map[_, _] => m foreach {
-            case (k, v: String) => v match {
-              case PlaceholderNumber(n) => paths(n.toInt) = path :+ k.toString
-              case _ => extract(v, path :+ k.toString)
+      * in the extractor must exist. JSON arrays may not appear in the extractor. */
+      def unapplySeq(json: Json): Option[Seq[Json]] = try {
+        val placeholder = Utils.uniqueNonSubstring(sc.parts.mkString)
+        val PlaceholderNumber = (placeholder+"([0-9]+)"+placeholder).r
+        val next = new Counter(0)
+        val txt = sc.parts.reduceLeft(_ + s""""${placeholder}${next()}${placeholder}" """ + _)
+        val paths: Array[Vector[String]] =
+          Array.fill[Vector[String]](sc.parts.length - 1)(Vector())
+        
+        def extract(any: Any, path: Vector[String]): Unit = {
+          import strategy.throwExceptions
+          if(parser.isNumber(any)) {
+            if(json.extract(path).get[Double](?, Extractor.doubleExtractor) !=
+                parser.getDouble(any)) throw new Exception("Value doesn't match")
+          } else if(parser.isString(any)) {
+            if(json.extract(path).get[String](?, Extractor.stringExtractor) !=
+                parser.getString(any)) throw new Exception("Value doesn't match")
+          } else if(parser.isBoolean(any)) {
+            if(json.extract(path).get[Boolean](?, Extractor.booleanExtractor) !=
+                parser.getBoolean(any)) throw new Exception("Value doesn't match")
+          } else if(parser.isObject(any)) {
+            parser.getObject(any) foreach { case (k, v) =>
+              if(parser.isString(v)) parser.getString(v) match {
+                case PlaceholderNumber(n) =>
+                  paths(n.toInt) = path :+ k
+              } else extract(v, path :+ k)
             }
-          }
-          case a: List[_] => ()
-            // Emit an exception if attempting to extract on lists
+          } else throw new Exception("Can't match on arrays.")
         }
-      }
-      extract(parser.parse(txt).get, Vector())
-      
-      val extracts = paths.map(json.extract)
-      if(extracts.exists(_.json == null)) None
-      else Some(extracts map { x => new Json(x.normalize) })
-    } catch { case e: Exception => None }
+            
+
+        extract(parser.parse(txt).get, Vector())
+
+        val extracts = paths.map(json.extract)
+        if(extracts.exists(_.json == null)) None
+        else Some(extracts map { x => new Json(x.normalize) })
+      } catch { case e: Exception => None }
   }
 }
