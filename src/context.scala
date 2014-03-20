@@ -70,6 +70,7 @@ class JsonStrings(sc: StringContext)(implicit parser: JsonParser[String])
               if(parser.isString(v)) parser.getString(v) match {
                 case PlaceholderNumber(n) =>
                   paths(n.toInt) = path :+ k
+                case _ => extract(v, path :+ k)
               } else extract(v, path :+ k)
             }
           } else throw new Exception("Can't match on arrays.")
