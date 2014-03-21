@@ -229,42 +229,42 @@ trait Extractor[T] {
 
 object Jsonizer {
 
-  implicit val intJsonizer: Jsonizer[Int] =
-    new Jsonizer[Int] { def jsonize(i: Int) = i.toDouble }
+  implicit def intJsonizer(implicit parser: JsonParser[_]): Jsonizer[Int] =
+    new Jsonizer[Int] { def jsonize(i: Int) = parser.fromDouble(i.toDouble) }
   
-  implicit val booleanJsonizer: Jsonizer[Boolean] =
-    new Jsonizer[Boolean] { def jsonize(b: Boolean) = b }
+  implicit def booleanJsonizer(implicit parser: JsonParser[_]): Jsonizer[Boolean] =
+    new Jsonizer[Boolean] { def jsonize(b: Boolean) = parser.fromBoolean(b) }
   
-  implicit val stringJsonizer: Jsonizer[String] =
-    new Jsonizer[String] { def jsonize(s: String) = s }
+  implicit def stringJsonizer(implicit parser: JsonParser[_]): Jsonizer[String] =
+    new Jsonizer[String] { def jsonize(s: String) = parser.fromString(s) }
   
-  implicit val floatJsonizer: Jsonizer[Float] =
-    new Jsonizer[Float] { def jsonize(f: Float) = f }
+  implicit def floatJsonizer(implicit parser: JsonParser[_]): Jsonizer[Float] =
+    new Jsonizer[Float] { def jsonize(f: Float) = parser.fromDouble(f.toDouble) }
   
-  implicit val doubleJsonizer: Jsonizer[Double] =
-    new Jsonizer[Double] { def jsonize(d: Double) = d }
+  implicit def doubleJsonizer(implicit parser: JsonParser[_]): Jsonizer[Double] =
+    new Jsonizer[Double] { def jsonize(d: Double) = parser.fromDouble(d) }
   
-  implicit val longJsonizer: Jsonizer[Long] =
-    new Jsonizer[Long] { def jsonize(l: Long) = l.toDouble }
+  implicit def longJsonizer(implicit parser: JsonParser[_]): Jsonizer[Long] =
+    new Jsonizer[Long] { def jsonize(l: Long) = parser.fromDouble(l.toDouble) }
   
-  implicit val shortJsonizer: Jsonizer[Short] =
-    new Jsonizer[Short] { def jsonize(s: Short) = s.toDouble }
+  implicit def shortJsonizer(implicit parser: JsonParser[_]): Jsonizer[Short] =
+    new Jsonizer[Short] { def jsonize(s: Short) = parser.fromDouble(s.toDouble) }
   
-  implicit val byteJsonizer: Jsonizer[Byte] =
-    new Jsonizer[Byte] { def jsonize(b: Byte) = b.toDouble }
+  implicit def byteJsonizer(implicit parser: JsonParser[_]): Jsonizer[Byte] =
+    new Jsonizer[Byte] { def jsonize(b: Byte) = parser.fromDouble(b.toDouble) }
   
-  implicit def listJsonizer[T: Jsonizer]: Jsonizer[List[T]] =
-    new Jsonizer[List[T]] { def jsonize(xs: List[T]) = xs.map(implicitly[Jsonizer[T]].jsonize) }
+  implicit def listJsonizer[T: Jsonizer](implicit parser: JsonParser[_]): Jsonizer[List[T]] =
+    new Jsonizer[List[T]] { def jsonize(xs: List[T]) = parser.fromArray(xs.map(implicitly[Jsonizer[T]].jsonize)) }
   
-  implicit def genSeqJsonizer[T: Jsonizer]: Jsonizer[Traversable[T]] =
+  implicit def genSeqJsonizer[T: Jsonizer](implicit parser: JsonParser[_]): Jsonizer[Traversable[T]] =
     new Jsonizer[Traversable[T]] {
-      def jsonize(xs: Traversable[T]): List[Any] =
-        xs.map(implicitly[Jsonizer[T]].jsonize _).to[List]
+      def jsonize(xs: Traversable[T]) =
+        parser.fromArray(xs.map(implicitly[Jsonizer[T]].jsonize).to[List])
     }
   
-  implicit def mapJsonizer[T: Jsonizer]: Jsonizer[Map[String, T]] =
+  implicit def mapJsonizer[T: Jsonizer](implicit parser: JsonParser[_]): Jsonizer[Map[String, T]] =
     new Jsonizer[Map[String, T]] {
-      def jsonize(m: Map[String, T]) = m.mapValues(implicitly[Jsonizer[T]].jsonize)
+      def jsonize(m: Map[String, T]) = parser.fromObject(m.mapValues(implicitly[Jsonizer[T]].jsonize))
     }
   
 }

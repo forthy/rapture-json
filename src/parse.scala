@@ -61,17 +61,27 @@ trait JsonParser[Source] {
   /** Extracts a `Boolean` from the parsed JSON. */
   def getBoolean(boolean: Any): Boolean
 
+  def fromBoolean(boolean: Boolean): Any
+
   /** Extracts a `String` from the parsed JSON. */
   def getString(string: Any): String
+
+  def fromString(string: String): Any
 
   /** Extracts a `Double` from the parsed JSON. */
   def getDouble(number: Any): Double
 
+  def fromDouble(number: Double): Any
+
   /** Extracts a JSON object as a `Map[String, Any]` from the parsed JSON. */
   def getObject(obj: Any): Map[String, Any]
 
+  def fromObject(obj: Map[String, Any]): Any
+
   /** Extracts a JSON array as a `Seq[Any]` from the parsed JSON. */
   def getArray(array: Any): Seq[Any]
+
+  def fromArray(array: Seq[Any]): Any
 
   /** Dereferences the named element within the JSON object. */
   def dereferenceObject(obj: Any, element: String): Any =
@@ -118,16 +128,10 @@ trait JsonParser[Source] {
 
 trait JsonBufferParser[T] extends JsonParser[T] {
 
-  def isMutableArray(array: Any): Boolean
-  def isMutableObject(array: Any): Boolean
-  def getMutableArray(array: Any): List[Any]
-  def getMutableObject(obj: Any): Map[String, Any]
-  def setMutableObjectValue(obj: Any, name: String, value: Any): Unit
-  def setMutableArrayValue(array: Any, index: Int, value: Any): Unit
-  def removeMutableObjectValue(obj: Any, name: String): Unit
-  def addMutableArrayValue(array: Any, value: Any): Unit
-
-  def toMutable(any: Any): Any
+  def setObjectValue(obj: Any, name: String, value: Any): Any
+  def setArrayValue(array: Any, index: Int, value: Any): Any
+  def removeObjectValue(obj: Any, name: String): Any
+  def addArrayValue(array: Any, value: Any): Any
 }
 
 /** The default JSON parser implementation */
@@ -140,53 +144,53 @@ object ScalaJsonParser extends JsonBufferParser[String] {
     case _ => throw TypeMismatchException(getType(array), JsonTypes.Array, Vector())
   }
 
+  def fromArray(array: Seq[Any]): Any = array.to[List]
+
   def getBoolean(boolean: Any): Boolean = boolean match {
     case boolean: Boolean => boolean
     case _ => throw TypeMismatchException(getType(boolean), JsonTypes.Boolean, Vector())
   }
+  
+  def fromBoolean(boolean: Boolean): Any = boolean
   
   def getDouble(double: Any): Double = double match {
     case double: Double => double
     case _ => throw TypeMismatchException(getType(double), JsonTypes.Number, Vector())
   }
   
+  def fromDouble(double: Double): Any = double
+  
   def getString(string: Any): String = string match {
     case string: String => string
     case _ => throw TypeMismatchException(getType(string), JsonTypes.String, Vector())
   }
+  
+  def fromString(string: String): Any = string
   
   def getObject(obj: Any): Map[String, Any] = obj match {
     case obj: Map[_, _] => obj collect { case (k: String, v) => k -> v }
     case _ => throw TypeMismatchException(getType(obj), JsonTypes.Object, Vector())
   }
   
-  def getMutableArray(array: Any): List[Any] = array match {
-    case array: ListBuffer[t] => array.to[List]
-    case _ => throw TypeMismatchException(getType(array), JsonTypes.Array, Vector())
-  }
-
-  def getMutableObject(obj: Any): Map[String, Any] = obj match {
-    case obj: HashMap[_, _] => obj.asInstanceOf[HashMap[String, Any]].toMap
-    case _ => throw TypeMismatchException(getType(obj), JsonTypes.Object, Vector())
-  }
-
-  def setMutableObjectValue(obj: Any, name: String, value: Any): Unit = obj match {
-    case obj: HashMap[_, _] => obj.asInstanceOf[HashMap[String, Any]](name) = value
+  def fromObject(obj: Map[String, Any]): Any = obj
+  
+  def setObjectValue(obj: Any, name: String, value: Any): Any = obj match {
+    case obj: Map[_, _] => obj.asInstanceOf[Map[String, Any]] + (name -> value)
     case _ => throw TypeMismatchException(getType(obj), JsonTypes.Object, Vector())
   }
   
-  def removeMutableObjectValue(obj: Any, name: String): Unit = obj match {
-    case obj: HashMap[_, _] => obj.asInstanceOf[HashMap[String, Any]].remove(name)
+  def removeObjectValue(obj: Any, name: String): Any = obj match {
+    case obj: Map[_, _] => obj.asInstanceOf[Map[String, Any]] - name
     case _ => throw TypeMismatchException(getType(obj), JsonTypes.Object, Vector())
   }
   
-  def addMutableArrayValue(array: Any, value: Any): Unit = array match {
-    case array: ListBuffer[_] => array.asInstanceOf[ListBuffer[Any]] += value
+  def addArrayValue(array: Any, value: Any): Any = array match {
+    case array: List[_] => array ::: List(value)
     case _ => throw TypeMismatchException(getType(array), JsonTypes.Array, Vector())
   }
   
-  def setMutableArrayValue(array: Any, index: Int, value: Any): Unit = array match {
-    case array: ListBuffer[_] => array.asInstanceOf[ListBuffer[Any]](index) = value
+  def setArrayValue(array: Any, index: Int, value: Any): Any = array match {
+    case array: List[_] => array.patch(index, List(value), 1)
     case _ => throw TypeMismatchException(getType(array), JsonTypes.Array, Vector())
   }
   
@@ -197,15 +201,6 @@ object ScalaJsonParser extends JsonBufferParser[String] {
   def isObject(any: Any): Boolean = typeTest { case _: Map[_, _] => () } (any)
   def isArray(any: Any): Boolean = typeTest { case _: List[_] => () } (any)
   def isNull(any: Any): Boolean = any == null
-  
-  def isMutableArray(any: Any): Boolean = typeTest { case _: ListBuffer[_] => () } (any)
-  def isMutableObject(any: Any): Boolean = typeTest { case _: HashMap[_, _] => () } (any)
-  
-  def toMutable(any: Any): Any = any match {
-    case list: List[t] => list.map(toMutable).to[ListBuffer]
-    case map: Map[k, v] => HashMap.empty ++ map.mapValues(toMutable)
-    case other => other
-  }
   
   def parse(s: String): Option[Any] = JSON.parseFull(s)
 }

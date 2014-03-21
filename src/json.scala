@@ -29,33 +29,14 @@ import language.dynamics
 object JsonBuffer {
   def parse[Source: JsonBufferParser](s: Source)(implicit eh: ExceptionHandler):
       eh.![JsonBuffer, ParseException] = eh.wrap {
-    new JsonBuffer(try implicitly[JsonParser[Source]].parseMutable(s).get catch {
+    new JsonBuffer(try implicitly[JsonParser[Source]].parse(s).get catch {
       case e: NoSuchElementException => throw new ParseException(s.toString)
     })
   }
   
   def apply[T: Jsonizer](t: T)(implicit parser: JsonBufferParser[_]): JsonBuffer =
-    new JsonBuffer(parser.toMutable(implicitly[Jsonizer[T]].jsonize(t)))
+    new JsonBuffer(implicitly[Jsonizer[T]].jsonize(t))
 
-  /** Formats the JSON object for multi-line readability. */
-  def format(json: Option[Any], ln: Int, parser: JsonBufferParser[_], pad: String = " ",
-      brk: String = "\n"): String = {
-    val indent = " "*ln
-    json match {
-      case None => "null"
-      case Some(j) =>
-        if(parser.isMutableArray(j)) {
-          List("[", parser.getMutableArray(j) map { v =>
-            s"${indent}${pad}${format(Some(v), ln + 1, parser)}"
-          } mkString s",${brk}", s"${indent}]") mkString brk
-        } else if(parser.isMutableObject(j)) {
-          val o = parser.getMutableObject(j)
-          List("{", o.keys map { k =>
-            s"""${indent}${pad}"${k}":${pad}${format(o.get(k), ln + 1, parser)}"""
-          } mkString s",${brk}", s"${indent}}") mkString brk
-        } else Json.format(json, ln, parser, pad, brk)
-    }
-  }
 }
 
 /** Companion object to the `Json` type, providing factory and extractor methods, and a JSON
@@ -198,25 +179,32 @@ object Jsonized {
 }
 case class Jsonized(value: Any)
 
-class JsonBuffer(private[json] val json: Any, path: Vector[Either[Int, String]] = Vector())
+class JsonBuffer(private[json] var json: Any, path: Vector[Either[Int, String]] = Vector())
     (implicit val parser: JsonBufferParser[_]) extends Dynamic {
   /** Updates the element `key` of the JSON object with the value `v` */
   def updateDynamic(key: String)(v: Jsonized): Unit =
-    parser.setMutableObjectValue(normalize(false, true), key, parser.toMutable(v.value))
+    updateParents(path, parser.setObjectValue(normalize, key, v.value))
  
   /** Updates the `i`th element of the JSON array with the value `v` */
   def update[T: Jsonizer](i: Int, v: T): Unit =
-    parser.setMutableArrayValue(normalize(true, true), i,
-        parser.toMutable(implicitly[Jsonizer[T]].jsonize(v)))
+    updateParents(path, parser.setArrayValue(normalize, i,
+        implicitly[Jsonizer[T]].jsonize(v)))
+
+  def updateParents(path: Vector[Either[Int, String]], newVal: Any) = path match {
+    case Vector() => json = newVal
+    case init :+ Left(idx) =>
+      parser.setArrayValue(new JsonBuffer(json, init).normalize, idx, newVal)
+    case init :+ Right(key) =>
+      parser.setObjectValue(new JsonBuffer(json, init).normalize, key, newVal)
+  }
 
   /** Removes the specified key from the JSON object */
-  def -=(k: String): Unit = parser.removeMutableObjectValue(normalize(false, true), k)
+  def -=(k: String): Unit = updateParents(path, parser.removeObjectValue(normalize, k))
 
   /** Adds the specified value to the JSON array */
-  def +=(v: Any): Unit = parser.addMutableArrayValue(normalize(true, true), v)
+  def +=[T: Jsonizer](v: T): Unit =
+    updateParents(path, parser.addArrayValue(normalize, implicitly[Jsonizer[T]].jsonize(v)))
 
-  /** Assumes the Json object is wrapping a ListBuffer, and extracts the `i`th element from
-    * the list */
   def apply(i: Int): JsonBuffer = new JsonBuffer(json, Left(i) +: path)
  
   /** Combines a `selectDynamic` and an `apply`.  This is necessary due to the way dynamic
@@ -231,46 +219,50 @@ class JsonBuffer(private[json] val json: Any, path: Vector[Either[Int, String]] 
   /** Assumes the Json object wraps a `Map`, and extracts the element `key`. */
   def selectDynamic(key: String): JsonBuffer =
     new JsonBuffer(json, Right(key) +: path)
- 
-  private[json] def normalize(array: Boolean, modify: Boolean): Any = {
+
+  private[json] def normalize: Any =
     yCombinator[(Any, Vector[Either[Int, String]]), Any] { fn => _ match {
-      case (j, Vector()) => j
-      case (j, Left(i) +: t) =>
-        fn(try j.asInstanceOf[ListBuffer[Any]](i) catch {
-          case e: ClassCastException =>
-            throw TypeMismatchException(parser.getType(j), JsonTypes.Array, path.drop(t.length))
-          case e: IndexOutOfBoundsException =>
-            throw MissingValueException(path.drop(t.length))
-        }, t)
-      case (j, Right(k) +: t) =>
-        val obj = if(array && t.isEmpty) new ListBuffer[Any] else new HashMap[String, Any]()
-        fn(try {
-          if(modify) j.asInstanceOf[HashMap[String, Any]].getOrElseUpdate(k, obj)
-          else j.asInstanceOf[HashMap[String, Any]](k)
-        } catch {
-          case e: ClassCastException =>
+      case (j, Vector()) => j: Any
+      case (j, t :+ Right(k)) =>
+        fn({
+          if(parser.isObject(j)) {
+            try parser.dereferenceObject(j, k) catch {
+              case TypeMismatchException(f, e, _) =>
+                TypeMismatchException(f, e, path.drop(t.length))
+              case e: Exception =>
+                throw MissingValueException(path.drop(t.length))
+            }
+          } else {
             throw TypeMismatchException(parser.getType(j), JsonTypes.Object,
-                path.drop(t.length))
-          case e: NoSuchElementException =>
-            throw MissingValueException(path.drop(t.length))
+              path.drop(t.length))
+          }
         }, t)
-        
-    } } (json -> path.reverse)
-  }
+      case (j, t :+ Left(i)) =>
+        fn((
+          if(parser.isArray(j)) {
+            try parser.dereferenceArray(j, i) catch {
+              case TypeMismatchException(f, e, _) =>
+                TypeMismatchException(f, e, path.drop(t.length))
+              case e: Exception =>
+                throw MissingValueException(path.drop(t.length))
+            }
+          } else {
+            throw TypeMismatchException(parser.getType(j), JsonTypes.Array, path.drop(t.length))
+          }
+        , t))
+    } } (json -> path)
 
   /** Assumes the Json object is wrapping a `T`, and casts (intelligently) to that type. */
   def get[T](implicit ext: Extractor[T], eh: ExceptionHandler): eh.![T, JsonGetException] =
     eh wrap {
-      try ext.rawConstruct(if(ext.errorToNull) (try normalize(false, false) catch {
-        case e: Exception => null
-      }) else normalize(false, false), parser) catch {
+      try ext.rawConstruct(normalize, parser) catch {
         case TypeMismatchException(f, e, _) => throw TypeMismatchException(f, e, path)
         case e: MissingValueException => throw e
       }
     }
 
   override def toString =
-    try JsonBuffer.format(Some(normalize(false, false)), 0, parser) catch {
+    try Json.format(Some(normalize), 0, parser) catch {
       case e: JsonGetException => "undefined"
     }
 }
