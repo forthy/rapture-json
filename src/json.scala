@@ -89,7 +89,7 @@ object Json {
             s"""${indent}${pad}"${k}":${pad}${format(inner, ln + 1, parser)}"""
           } mkString s",${brk}", s"${indent}}") mkString brk
         } else if(parser.isNull(j)) "null"
-        else s"undefined-unknown:$j"
+        else "undefined"
     }
   }
 

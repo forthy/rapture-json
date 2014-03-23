@@ -47,16 +47,6 @@ object JsonTypes {
 /** Represents a JSON parser implementation which is used throughout this library */
 trait JsonParser[Source] {
   def parse(s: Source): Option[Any]
-  def parseMutable(s: Source): Option[Any] = try Some(yCombinator[Any, Any] { fn =>
-    _ match {
-      case m: Map[_, _] =>
-        val hm = HashMap[String, Any](m.asInstanceOf[Map[String, Any]].to[List]: _*)
-        for(k <- hm.keys) hm(k) = fn(hm(k))
-        hm
-      case lst: List[_] => ListBuffer(lst.map(fn): _*)
-      case x => x
-    }
-  } (parse(s).get)) catch { case e: Exception => None }
 
   /** Extracts a `Boolean` from the parsed JSON. */
   def getBoolean(boolean: Any): Boolean
