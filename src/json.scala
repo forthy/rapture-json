@@ -223,10 +223,10 @@ class JsonBuffer(private[json] var json: Jsonized, path: Vector[Either[Int, Stri
     new JsonBuffer(json, Right(key) +: path)
 
   private[json] def normalizeOrNil: Any =
-    try normalize catch { case e: Exception => parser.fromArray(parser.getArray(List())) }
+    try normalize catch { case e: Exception => parser.fromArray(List()) }
 
   private[json] def normalizeOrEmpty: Any =
-    try normalize catch { case e: Exception => parser.fromObject(parser.getObject(Map())) }
+    try normalize catch { case e: Exception => parser.fromObject(Map()) }
 
   private[json] def normalize: Any =
     yCombinator[(Any, Vector[Either[Int, String]]), Any] { fn => _ match {
