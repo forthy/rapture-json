@@ -84,7 +84,7 @@ object Macros {
     reify(new Extractor[T] { def construct(json: Json): T = construction.splice })
   }
 
-  def jsonizerMacro[T: c.WeakTypeTag](c: Context): c.Expr[Jsonizer[T]] = {
+  def jsonizerMacro[T: c.WeakTypeTag](c: Context)(parser: c.Expr[JsonParser[_]]): c.Expr[Jsonizer[T]] = {
     import c.universe._
 
     val tpe = weakTypeOf[T].typeSymbol.asClass
@@ -125,7 +125,7 @@ object Macros {
         )
       }
 
-      c.Expr(
+      c.Expr[Map[String, Any]](
         Apply(
           Select(
             Select(
@@ -138,7 +138,7 @@ object Macros {
         )
       )
     } else if(tpe.isSealed) {
-      c.Expr(
+      c.Expr[Map[String, Any]](
         Match(
           Ident(newTermName("t")),
           tpe.knownDirectSubclasses.to[List] map { sc =>
@@ -164,17 +164,13 @@ object Macros {
       )
     } else throw new Exception()
 
-    reify(new Jsonizer[T] { def jsonize(t: T): Any = construction.splice })
+    reify(new Jsonizer[T] { def jsonize(t: T): Any = parser.splice.fromObject(construction.splice) })
   }
 }
 
 object Extractor {
 
   implicit val jsonExtractor: Extractor[Json] = BasicExtractor[Json](identity)
-  
-  implicit def mutableJsonExtractor(implicit parser: JsonBufferParser[String]):
-      Extractor[JsonBuffer] = BasicExtractor[JsonBuffer](x =>
-      JsonBuffer.parse(x.toString)(parser, strategy.throwExceptions))
   
   implicit val stringExtractor: Extractor[String] = BasicExtractor[String](x =>
       x.parser.getString(x.json))
