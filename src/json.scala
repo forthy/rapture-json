@@ -24,25 +24,34 @@ import rapture.core._
 
 import scala.collection.mutable.{ListBuffer, HashMap}
 
-import language.dynamics
+import language.{dynamics, higherKinds}
 
-object JsonBuffer {
+trait DynamicData[Type, ParserType[_]] {
+  def construct(any: Any, path: Vector[Either[Int, String]])(implicit parser: ParserType[_]): Type
+}
+
+object JsonBuffer extends DynamicData[JsonBuffer, JsonBufferParser] {
+  
+  def construct(any: Any, path: Vector[Either[Int, String]])(implicit parser: JsonBufferParser[_]): JsonBuffer = new JsonBuffer(Array(any), path)
+  
   def parse[Source: JsonBufferParser](s: Source)(implicit eh: ExceptionHandler):
       eh.![JsonBuffer, ParseException] = eh.wrap {
-    new JsonBuffer(Jsonized(try implicitly[JsonParser[Source]].parse(s).get catch {
+    new JsonBuffer(Array(try implicitly[JsonParser[Source]].parse(s).get catch {
       case e: NoSuchElementException => throw new ParseException(s.toString)
     }))
   }
   
   def apply[T: Jsonizer](t: T)(implicit parser: JsonBufferParser[_]): JsonBuffer =
-    new JsonBuffer(Jsonized(implicitly[Jsonizer[T]].jsonize(t)))
+    new JsonBuffer(Array(implicitly[Jsonizer[T]].jsonize(t)))
 
 }
 
 /** Companion object to the `Json` type, providing factory and extractor methods, and a JSON
   * pretty printer. */
-object Json {
+object Json extends DynamicData[Json, JsonParser] {
 
+  def construct(any: Any, path: Vector[Either[Int, String]])(implicit parser: JsonParser[_]): Json = new Json(any, path)
+  
   /** Parses a string containing JSON into a `Json` object */
   def parse[Source: JsonParser](s: Source)(implicit eh: ExceptionHandler):
       eh.![Json, ParseException] = eh.wrap {
@@ -99,8 +108,10 @@ object Json {
 
 /** Represents some parsed JSON. */
 class Json(val json: Any, path: Vector[Either[Int, String]] = Vector())(implicit
-    val parser: JsonParser[_]) extends Dynamic {
+    val parser: JsonParser[_]) extends Dynamic with JsonBase[Json] {
 
+  val companion = Json
+  
   def $accessInnerJsonMap(k: String): Any = parser.dereferenceObject(json, k)
 
   override def equals(any: Any) = any match {
@@ -113,7 +124,7 @@ class Json(val json: Any, path: Vector[Either[Int, String]] = Vector())(implicit
   /** Assumes the Json object is wrapping a List, and extracts the `i`th element from the
     * vector */
   def apply(i: Int): Json =
-    new Json(json, Left(i) +: path)
+    companion.construct(json, Left(i) +: path)
  
   /** Combines a `selectDynamic` and an `apply`.  This is necessary due to the way dynamic
     * application is expanded. */
@@ -126,7 +137,7 @@ class Json(val json: Any, path: Vector[Either[Int, String]] = Vector())(implicit
   
   /** Assumes the Json object wraps a `Map`, and extracts the element `key`. */
   def selectDynamic(key: String): Json =
-    new Json(json, Right(key) +: path)
+    companion.construct(json, Right(key) +: path)
  
   private[json] def normalize: Any =
     yCombinator[(Any, Vector[Either[Int, String]]), Any] { fn => _ match {
@@ -178,8 +189,14 @@ object Jsonized {
 }
 case class Jsonized(private[json] var value: Any)
 
-class JsonBuffer(private[json] var json: Jsonized, path: Vector[Either[Int, String]] = Vector())
-    (implicit val parser: JsonBufferParser[_]) extends Dynamic {
+trait JsonBase[T] {
+}
+
+class JsonBuffer(private[json] var json: Array[Any], path: Vector[Either[Int, String]] = Vector())
+    (implicit val parser: JsonBufferParser[_]) extends Dynamic with JsonBase[JsonBuffer] {
+ 
+  val companion = JsonBuffer
+  
   /** Updates the element `key` of the JSON object with the value `v` */
   def updateDynamic(key: String)(v: Jsonized): Unit =
     updateParents(path, parser.setObjectValue(normalizeOrEmpty, key, v.value))
@@ -191,12 +208,12 @@ class JsonBuffer(private[json] var json: Jsonized, path: Vector[Either[Int, Stri
   protected def updateParents(path: Vector[Either[Int, String]], newVal: Any): Unit =
     path match {
       case Vector() =>
-        json.value = newVal
+        json(0) = newVal
       case init :+ Left(idx) =>
-        val jb = new JsonBuffer(json, init)
+        val jb = companion.construct(json(0), init)
         updateParents(init, parser.setArrayValue(jb.normalizeOrNil, idx, newVal))
       case init :+ Right(key) =>
-        val jb = new JsonBuffer(json, init)
+        val jb = companion.construct(json(0), init)
         updateParents(init, parser.setObjectValue(jb.normalizeOrEmpty, key, newVal))
     }
 
@@ -207,7 +224,7 @@ class JsonBuffer(private[json] var json: Jsonized, path: Vector[Either[Int, Stri
   def +=[T: Jsonizer](v: T): Unit =
     updateParents(path, parser.addArrayValue(normalize, implicitly[Jsonizer[T]].jsonize(v)))
 
-  def apply(i: Int): JsonBuffer = new JsonBuffer(json, Left(i) +: path)
+  def apply(i: Int): JsonBuffer = companion.construct(json(0), Left(i) +: path)
  
   /** Combines a `selectDynamic` and an `apply`.  This is necessary due to the way dynamic
     * application is expanded. */
@@ -220,7 +237,7 @@ class JsonBuffer(private[json] var json: Jsonized, path: Vector[Either[Int, Stri
   
   /** Assumes the Json object wraps a `Map`, and extracts the element `key`. */
   def selectDynamic(key: String): JsonBuffer =
-    new JsonBuffer(json, Right(key) +: path)
+    companion.construct(json(0), Right(key) +: path)
 
   private[json] def normalizeOrNil: Any =
     try normalize catch { case e: Exception => parser.fromArray(List()) }
@@ -258,7 +275,7 @@ class JsonBuffer(private[json] var json: Jsonized, path: Vector[Either[Int, Stri
             throw TypeMismatchException(parser.getType(j), JsonTypes.Array, path.drop(t.length))
           }
         , t))
-    } } (json.value -> path)
+    } } (json(0) -> path)
 
   /** Assumes the Json object is wrapping a `T`, and casts (intelligently) to that type. */
   def get[T](implicit ext: Extractor[T], eh: ExceptionHandler): eh.![T, JsonGetException] =
