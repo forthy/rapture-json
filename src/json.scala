@@ -143,38 +143,6 @@ class Json(val json: Any, val path: Vector[Either[Int, String]] = Vector())(impl
   def selectDynamic(key: String): Json =
     companion.construct(json, Right(key) +: path)
  
-  private[json] def normalize: Any =
-    yCombinator[(Any, Vector[Either[Int, String]]), Any] { fn => _ match {
-      case (j, Vector()) => j: Any
-      case (j, t :+ Right(k)) =>
-        fn({
-          if(parser.isObject(j)) {
-            try parser.dereferenceObject(j, k) catch {
-              case TypeMismatchException(f, e, _) =>
-                TypeMismatchException(f, e, path.drop(t.length))
-              case e: Exception =>
-                throw MissingValueException(path.drop(t.length))
-            }
-          } else {
-            throw TypeMismatchException(parser.getType(j), JsonTypes.Object,
-              path.drop(t.length))
-          }
-        }, t)
-      case (j, t :+ Left(i)) =>
-        fn((
-          if(parser.isArray(j)) {
-            try parser.dereferenceArray(j, i) catch {
-              case TypeMismatchException(f, e, _) =>
-                TypeMismatchException(f, e, path.drop(t.length))
-              case e: Exception =>
-                throw MissingValueException(path.drop(t.length))
-            }
-          } else {
-            throw TypeMismatchException(parser.getType(j), JsonTypes.Array, path.drop(t.length))
-          }
-        , t))
-    } } (json -> path)
-
   /** Assumes the Json object is wrapping a `T`, and casts (intelligently) to that type. */
   def get[T](implicit eh: ExceptionHandler, ext: Extractor[T]): eh.![T, JsonGetException] =
     eh.wrap(try ext.rawConstruct(normalize, parser) catch {
@@ -193,15 +161,47 @@ object Jsonized {
 }
 case class Jsonized(private[json] var value: Any)
 
-trait JsonBase[T, ParserType[_]] {
+trait JsonBase[T, ParserType[S] <: JsonParser[S]] {
   def companion: DynamicData[T, ParserType]
   def root: Any
   def parser: ParserType[_]
   def path: Vector[Either[Int, String]]
   def apply(i: Int) = companion.construct(root, Left(i) +: path)(parser)
+  
+  private[json] def normalize: Any =
+    yCombinator[(Any, Vector[Either[Int, String]]), Any] { fn => _ match {
+      case (j, Vector()) => j: Any
+      case (j, t :+ Right(k)) =>
+        fn(({
+          if(parser.isObject(j)) {
+            try parser.dereferenceObject(j, k) catch {
+              case TypeMismatchException(f, e, _) =>
+                TypeMismatchException(f, e, path.drop(t.length))
+              case e: Exception =>
+                throw MissingValueException(path.drop(t.length))
+            }
+          } else {
+            throw TypeMismatchException(parser.getType(j), JsonTypes.Object,
+              path.drop(t.length))
+          }
+        }, t))
+      case (j, t :+ Left(i)) =>
+        fn((
+          if(parser.isArray(j)) {
+            try parser.dereferenceArray(j, i) catch {
+              case TypeMismatchException(f, e, _) =>
+                TypeMismatchException(f, e, path.drop(t.length))
+              case e: Exception =>
+                throw MissingValueException(path.drop(t.length))
+            }
+          } else {
+            throw TypeMismatchException(parser.getType(j), JsonTypes.Array, path.drop(t.length))
+          }
+        , t))
+    } } (root -> path)
 }
 
-trait MutableJsonBase[T, ParserType[_]] extends JsonBase[T, ParserType] {
+trait MutableJsonBase[T, ParserType[S] <: JsonParser[S]] extends JsonBase[T, ParserType] {
   def companion: MutableDynamicData[T, ParserType]
 }
 
@@ -256,38 +256,6 @@ class JsonBuffer(private[json] val json: Array[Any], val path: Vector[Either[Int
 
   private[json] def normalizeOrEmpty: Any =
     try normalize catch { case e: Exception => parser.fromObject(Map()) }
-
-  private[json] def normalize: Any =
-    yCombinator[(Any, Vector[Either[Int, String]]), Any] { fn => _ match {
-      case (j, Vector()) => j: Any
-      case (j, t :+ Right(k)) =>
-        fn({
-          if(parser.isObject(j)) {
-            try parser.dereferenceObject(j, k) catch {
-              case TypeMismatchException(f, e, _) =>
-                TypeMismatchException(f, e, path.drop(t.length))
-              case e: Exception =>
-                throw MissingValueException(path.drop(t.length))
-            }
-          } else {
-            throw TypeMismatchException(parser.getType(j), JsonTypes.Object,
-              path.drop(t.length))
-          }
-        }, t)
-      case (j, t :+ Left(i)) =>
-        fn((
-          if(parser.isArray(j)) {
-            try parser.dereferenceArray(j, i) catch {
-              case TypeMismatchException(f, e, _) =>
-                TypeMismatchException(f, e, path.drop(t.length))
-              case e: Exception =>
-                throw MissingValueException(path.drop(t.length))
-            }
-          } else {
-            throw TypeMismatchException(parser.getType(j), JsonTypes.Array, path.drop(t.length))
-          }
-        , t))
-    } } (json(0) -> path)
 
   /** Assumes the Json object is wrapping a `T`, and casts (intelligently) to that type. */
   def get[T](implicit ext: Extractor[T], eh: ExceptionHandler): eh.![T, JsonGetException] =
