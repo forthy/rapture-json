@@ -107,10 +107,11 @@ object Json extends DynamicData[Json, JsonParser] {
 }
 
 /** Represents some parsed JSON. */
-class Json(val json: Any, path: Vector[Either[Int, String]] = Vector())(implicit
-    val parser: JsonParser[_]) extends Dynamic with JsonBase[Json] {
+class Json(val json: Any, val path: Vector[Either[Int, String]] = Vector())(implicit
+    val parser: JsonParser[_]) extends Dynamic with JsonBase[Json, JsonParser] {
 
   val companion = Json
+  def root = json
   
   def $accessInnerJsonMap(k: String): Any = parser.dereferenceObject(json, k)
 
@@ -121,11 +122,6 @@ class Json(val json: Any, path: Vector[Either[Int, String]] = Vector())(implicit
 
   override def hashCode = json.hashCode & "json".hashCode
 
-  /** Assumes the Json object is wrapping a List, and extracts the `i`th element from the
-    * vector */
-  def apply(i: Int): Json =
-    companion.construct(json, Left(i) +: path)
- 
   /** Combines a `selectDynamic` and an `apply`.  This is necessary due to the way dynamic
     * application is expanded. */
   def applyDynamic(key: String)(i: Int): Json = selectDynamic(key).apply(i)
@@ -189,13 +185,19 @@ object Jsonized {
 }
 case class Jsonized(private[json] var value: Any)
 
-trait JsonBase[T] {
+trait JsonBase[T, ParserType[_]] {
+  def companion: DynamicData[T, ParserType]
+  def root: Any
+  def parser: ParserType[_]
+  def path: Vector[Either[Int, String]]
+  def apply(i: Int) = companion.construct(root, Left(i) +: path)(parser)
 }
 
-class JsonBuffer(private[json] var json: Array[Any], path: Vector[Either[Int, String]] = Vector())
-    (implicit val parser: JsonBufferParser[_]) extends Dynamic with JsonBase[JsonBuffer] {
+class JsonBuffer(private[json] val json: Array[Any], val path: Vector[Either[Int, String]] = Vector())
+    (implicit val parser: JsonBufferParser[_]) extends Dynamic with JsonBase[JsonBuffer, JsonBufferParser] {
  
   val companion = JsonBuffer
+  def root = json(0)
   
   /** Updates the element `key` of the JSON object with the value `v` */
   def updateDynamic(key: String)(v: Jsonized): Unit =
@@ -224,8 +226,6 @@ class JsonBuffer(private[json] var json: Array[Any], path: Vector[Either[Int, St
   def +=[T: Jsonizer](v: T): Unit =
     updateParents(path, parser.addArrayValue(normalize, implicitly[Jsonizer[T]].jsonize(v)))
 
-  def apply(i: Int): JsonBuffer = companion.construct(json(0), Left(i) +: path)
- 
   /** Combines a `selectDynamic` and an `apply`.  This is necessary due to the way dynamic
     * application is expanded. */
   def applyDynamic(key: String)(i: Int): JsonBuffer = selectDynamic(key).apply(i)
