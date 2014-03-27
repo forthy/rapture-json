@@ -26,12 +26,12 @@ import scala.collection.mutable.{ListBuffer, HashMap}
 
 import language.{dynamics, higherKinds}
 
-trait DynamicData[Type, ParserType[_]] {
+trait DynamicData[+Type, ParserType[S] <: JsonParser[S]] {
   def construct(any: Any, path: Vector[Either[Int, String]])(implicit parser: ParserType[_]): Type
+  def constructRaw(any: Array[Any], path: Vector[Either[Int, String]])(implicit parser: ParserType[_]): Type
 }
   
-trait MutableDynamicData[Type, ParserType[_]] extends DynamicData[Type, ParserType] {
-  def constructRaw(any: Array[Any], path: Vector[Either[Int, String]])(implicit parser: ParserType[_]): Type
+trait MutableDynamicData[+Type, ParserType[S] <: JsonParser[S]] extends DynamicData[Type, ParserType] {
 }
 
 object JsonBuffer extends MutableDynamicData[JsonBuffer, JsonBufferParser] {
@@ -59,6 +59,9 @@ object JsonBuffer extends MutableDynamicData[JsonBuffer, JsonBufferParser] {
 object Json extends DynamicData[Json, JsonParser] {
 
   def construct(any: Any, path: Vector[Either[Int, String]])(implicit parser: JsonParser[_]): Json = new Json(Array(any), path)
+  
+  def constructRaw(any: Array[Any], path: Vector[Either[Int, String]])(implicit parser: JsonParser[_]): Json =
+    new Json(any, path)
   
   /** Parses a string containing JSON into a `Json` object */
   def parse[Source: JsonParser](s: Source)(implicit eh: ExceptionHandler):
@@ -116,7 +119,7 @@ object Json extends DynamicData[Json, JsonParser] {
 
 /** Represents some parsed JSON. */
 class Json(val rootNode: Array[Any], val path: Vector[Either[Int, String]] = Vector())(implicit
-    val parser: JsonParser[_]) extends Dynamic with JsonBase[Json, JsonParser] {
+    val parser: JsonParser[_]) extends JsonBase[Json, JsonParser] {
 
   val companion = Json
   def root = rootNode(0)
@@ -130,30 +133,6 @@ class Json(val rootNode: Array[Any], val path: Vector[Either[Int, String]] = Vec
 
   override def hashCode = rootNode(0).hashCode & "json".hashCode
 
-  /** Combines a `selectDynamic` and an `apply`.  This is necessary due to the way dynamic
-    * application is expanded. */
-  def applyDynamic(key: String)(i: Int): Json = selectDynamic(key).apply(i)
-  
-  /** Navigates the JSON using the `Vector[String]` parameter, and returns the element at that
-    * position in the tree. */
-  def extract(sp: Vector[String]): Json =
-    if(sp.isEmpty) this else selectDynamic(sp.head).extract(sp.tail)
-  
-  /** Assumes the Json object wraps a `Map`, and extracts the element `key`. */
-  def selectDynamic(key: String): Json =
-    companion.construct(rootNode(0), Right(key) +: path)
- 
-  /** Assumes the Json object is wrapping a `T`, and casts (intelligently) to that type. */
-  def get[T](implicit eh: ExceptionHandler, ext: Extractor[T]): eh.![T, JsonGetException] =
-    eh.wrap(try ext.rawConstruct(normalize, parser) catch {
-      case TypeMismatchException(f, e, _) => throw TypeMismatchException(f, e, path)
-      case e: MissingValueException => throw e
-    })
-
-  override def toString =
-    try Json.format(Some(normalize), 0, parser) catch {
-      case e: JsonGetException => "undefined"
-    }
 }
 
 object Jsonized {
@@ -161,13 +140,38 @@ object Jsonized {
 }
 case class Jsonized(private[json] var value: Any)
 
-trait JsonBase[T, ParserType[S] <: JsonParser[S]] {
+trait JsonBase[+T <: JsonBase[T, ParserType], ParserType[S] <: JsonParser[S]] extends Dynamic {
   def companion: DynamicData[T, ParserType]
   def root: Any
-  def parser: ParserType[_]
+  private[json] def rootNode: Array[Any]
+  implicit def parser: ParserType[_]
   def path: Vector[Either[Int, String]]
-  def apply(i: Int) = companion.construct(root, Left(i) +: path)(parser)
+  def apply(i: Int): T = companion.constructRaw(rootNode, Left(i) +: path)(parser)
   
+  /** Combines a `selectDynamic` and an `apply`.  This is necessary due to the way dynamic
+    * application is expanded. */
+  def applyDynamic(key: String)(i: Int): T = selectDynamic(key).apply(i)
+  
+  /** Assumes the Json object is wrapping a `T`, and casts (intelligently) to that type. */
+  def get[T](implicit ext: Extractor[T], eh: ExceptionHandler): eh.![T, JsonGetException] =
+    eh wrap {
+      try ext.rawConstruct(normalize, parser) catch {
+        case TypeMismatchException(f, e, _) => throw TypeMismatchException(f, e, path)
+        case e: MissingValueException => throw e
+      }
+    }
+  
+  /** Assumes the Json object wraps a `Map`, and extracts the element `key`. */
+  def selectDynamic(key: String): T =
+    companion.constructRaw(rootNode, Right(key) +: path)
+
+  def extract(sp: Vector[String]): JsonBase[T, ParserType] =
+    if(sp.isEmpty) this else selectDynamic(sp.head).extract(sp.tail)
+  
+  override def toString =
+    try Json.format(Some(normalize), 0, parser) catch {
+      case e: JsonGetException => "undefined"
+    }
   private[json] def normalize: Any =
     yCombinator[(Any, Vector[Either[Int, String]]), Any] { fn => _ match {
       case (j, Vector()) => j: Any
@@ -201,12 +205,12 @@ trait JsonBase[T, ParserType[S] <: JsonParser[S]] {
     } } (root -> path)
 }
 
-trait MutableJsonBase[T, ParserType[S] <: JsonParser[S]] extends JsonBase[T, ParserType] {
+trait MutableJsonBase[+T <: MutableJsonBase[T, ParserType], ParserType[S] <: JsonParser[S]] extends JsonBase[T, ParserType] {
   def companion: MutableDynamicData[T, ParserType]
 }
 
 class JsonBuffer(private[json] val rootNode: Array[Any], val path: Vector[Either[Int, String]] = Vector())
-    (implicit val parser: JsonBufferParser[_]) extends Dynamic with MutableJsonBase[JsonBuffer, JsonBufferParser] {
+    (implicit val parser: JsonBufferParser[_]) extends MutableJsonBase[JsonBuffer, JsonBufferParser] {
  
   val companion = JsonBuffer
   def root = rootNode(0)
@@ -237,39 +241,14 @@ class JsonBuffer(private[json] val rootNode: Array[Any], val path: Vector[Either
   /** Adds the specified value to the JSON array */
   def +=[T: Jsonizer](v: T): Unit =
     updateParents(path, parser.addArrayValue(normalize, implicitly[Jsonizer[T]].jsonize(v)))
-
-  /** Combines a `selectDynamic` and an `apply`.  This is necessary due to the way dynamic
-    * application is expanded. */
-  def applyDynamic(key: String)(i: Int): JsonBuffer = selectDynamic(key).apply(i)
   
   /** Navigates the JSON using the `List[String]` parameter, and returns the element at that
     * position in the tree. */
-  def extract(sp: Vector[String]): JsonBuffer =
-    if(sp.isEmpty) this else selectDynamic(sp.head).extract(sp.tail)
-  
-  /** Assumes the Json object wraps a `Map`, and extracts the element `key`. */
-  def selectDynamic(key: String): JsonBuffer =
-    companion.constructRaw(rootNode, Right(key) +: path)
-
   private[json] def normalizeOrNil: Any =
     try normalize catch { case e: Exception => parser.fromArray(List()) }
 
   private[json] def normalizeOrEmpty: Any =
     try normalize catch { case e: Exception => parser.fromObject(Map()) }
-
-  /** Assumes the Json object is wrapping a `T`, and casts (intelligently) to that type. */
-  def get[T](implicit ext: Extractor[T], eh: ExceptionHandler): eh.![T, JsonGetException] =
-    eh wrap {
-      try ext.rawConstruct(normalize, parser) catch {
-        case TypeMismatchException(f, e, _) => throw TypeMismatchException(f, e, path)
-        case e: MissingValueException => throw e
-      }
-    }
-
-  override def toString =
-    try Json.format(Some(normalize), 0, parser) catch {
-      case e: JsonGetException => "undefined"
-    }
 }
 
 class AnyExtractor[T](cast: Json => T) extends BasicExtractor[T](x => cast(x))
