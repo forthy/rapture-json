@@ -36,7 +36,7 @@ class JsonStrings(sc: StringContext)(implicit parser: JsonParser[String])
         val expressions = exprs.iterator
         sb.append(textParts.next())
         while(textParts.hasNext) {
-          sb.append(new Json(expressions.next).toString)
+          sb.append(new Json(Array(expressions.next)).toString)
           sb.append(textParts.next)
         }
         Json.parse(sb.toString)(parser, raw)
@@ -80,8 +80,8 @@ class JsonStrings(sc: StringContext)(implicit parser: JsonParser[String])
         extract(parser.parse(txt).get, Vector())
 
         val extracts = paths.map(json.extract)
-        if(extracts.exists(_.json == null)) None
-        else Some(extracts map { x => new Json(x.normalize) })
+        if(extracts.exists(_.rootNode(0) == null)) None
+        else Some(extracts map { x => new Json(Array(x.normalize)) })
       } catch { case e: Exception => None }
   }
 }

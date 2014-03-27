@@ -173,53 +173,53 @@ object Extractor {
   implicit val jsonExtractor: Extractor[Json] = BasicExtractor[Json](identity)
   
   implicit val stringExtractor: Extractor[String] = BasicExtractor[String](x =>
-      x.parser.getString(x.json))
+      x.parser.getString(x.rootNode(0)))
   
   implicit val doubleExtractor: Extractor[Double] = BasicExtractor[Double](x =>
-      x.parser.getDouble(x.json))
+      x.parser.getDouble(x.rootNode(0)))
   
   implicit val floatExtractor: Extractor[Float] = BasicExtractor[Float](x =>
-      x.parser.getDouble(x.json).toFloat)
+      x.parser.getDouble(x.rootNode(0)).toFloat)
 
   implicit val shortExtractor: Extractor[Short] = BasicExtractor[Short](x =>
-      x.parser.getDouble(x.json).toShort)
+      x.parser.getDouble(x.rootNode(0)).toShort)
 
   implicit val intExtractor: Extractor[Int] = BasicExtractor[Int](x =>
-      x.parser.getDouble(x.json).toInt)
+      x.parser.getDouble(x.rootNode(0)).toInt)
 
   implicit val longExtractor: Extractor[Long] = BasicExtractor[Long](x =>
-      x.parser.getDouble(x.json).toLong)
+      x.parser.getDouble(x.rootNode(0)).toLong)
 
   implicit val byteExtractor: Extractor[Byte] = BasicExtractor[Byte](x =>
-      x.parser.getDouble(x.json).toInt.toByte)
+      x.parser.getDouble(x.rootNode(0)).toInt.toByte)
 
   implicit val booleanExtractor: Extractor[Boolean] = BasicExtractor[Boolean](x =>
-      x.parser.getBoolean(x.json))
+      x.parser.getBoolean(x.rootNode(0)))
 
-  implicit val anyExtractor: Extractor[Any] = BasicExtractor[Any](_.json)
+  implicit val anyExtractor: Extractor[Any] = BasicExtractor[Any](_.rootNode(0))
   
   implicit def genSeqExtractor[T, Coll[_]](implicit cbf:
       scala.collection.generic.CanBuildFrom[Nothing, T, Coll[T]], ext: Extractor[T]):
       Extractor[Coll[T]] =
     BasicExtractor[Coll[T]]({ x =>
-      x.parser.getArray(x.json).to[List].map(ext.rawConstruct(_, x.parser)).to[Coll]
+      x.parser.getArray(x.rootNode(0)).to[List].map(ext.rawConstruct(_, x.parser)).to[Coll]
     })
 
   implicit def optionExtractor[T](implicit ext: Extractor[T]): Extractor[Option[T]] =
     new BasicExtractor[Option[T]](x =>
-      if(x.json == null) None else Some(x.json: Any) map (ext.rawConstruct(_, x.parser))
+      if(x.rootNode(0) == null) None else Some(x.rootNode(0): Any) map (ext.rawConstruct(_, x.parser))
     ) { override def errorToNull = true }
   
   implicit def mapExtractor[T](implicit ext: Extractor[T]): Extractor[Map[String, T]] =
     BasicExtractor[Map[String, T]](x =>
-      x.parser.getObject(x.json) mapValues (ext.rawConstruct(_, x.parser))
+      x.parser.getObject(x.rootNode(0)) mapValues (ext.rawConstruct(_, x.parser))
     )
 }
 
 @implicitNotFound("cannot extract type ${T} from JSON.")
 trait Extractor[T] {
   def construct(any: Json): T
-  def rawConstruct(any: Any, parser: JsonParser[_]): T = construct(new Json(any)(parser))
+  def rawConstruct(any: Any, parser: JsonParser[_]): T = construct(new Json(Array(any))(parser))
   def errorToNull = false
 }
 
