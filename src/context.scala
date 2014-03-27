@@ -80,7 +80,7 @@ class JsonStrings(sc: StringContext)(implicit parser: JsonParser[String])
         extract(parser.parse(txt).get, Vector())
 
         val extracts = paths.map(json.extract)
-        if(extracts.exists(_.root == null)) None
+        if(extracts.exists(_.root(0) == null)) None
         else Some(extracts map { x => new Json(Array(x.normalize(false))) })
       } catch { case e: Exception => None }
   }

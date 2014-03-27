@@ -32,13 +32,12 @@ object DataCompanion {
 
 trait DataType[+T <: DataType[T, ParserType], ParserType[S] <: DataParser[S]] extends Dynamic {
   def companion: DataCompanion[T, ParserType]
-  def root: Any
-  private[json] def rootNode: Array[Any]
+  private[json] def root: Array[Any]
   implicit def parser: ParserType[_]
   def path: Vector[Either[Int, String]]
   private[json] def normalize(orEmpty: Boolean): Any
   
-  def format: String = companion.format(Some(rootNode(0)), 0, parser, " ", "\n")
+  def format: String = companion.format(Some(root(0)), 0, parser, " ", "\n")
 
   def serialize: String = companion.format(Some(normalize(false)), 0, parser, "", "")
 }
@@ -104,7 +103,6 @@ trait JsonDataCompanion[+Type <: JsonDataType[Type, ParserType],
   
 }
 object JsonBuffer extends JsonDataCompanion[JsonBuffer, JsonBufferParser] {
-  
   def constructRaw(any: Array[Any], path: Vector[Either[Int, String]])(implicit parser:
       JsonBufferParser[_]): JsonBuffer = new JsonBuffer(any, path)
 }
@@ -112,27 +110,16 @@ object JsonBuffer extends JsonDataCompanion[JsonBuffer, JsonBufferParser] {
 /** Companion object to the `Json` type, providing factory and extractor methods, and a JSON
   * pretty printer. */
 object Json extends JsonDataCompanion[Json, JsonParser] {
-
   def constructRaw(any: Array[Any], path: Vector[Either[Int, String]])(implicit parser: JsonParser[_]): Json =
     new Json(any, path)
-  
 }
 
 /** Represents some parsed JSON. */
-class Json(val rootNode: Array[Any], val path: Vector[Either[Int, String]] = Vector())(implicit
+class Json(val root: Array[Any], val path: Vector[Either[Int, String]] = Vector())(implicit
     val parser: JsonParser[_]) extends JsonDataType[Json, JsonParser] {
 
   val companion = Json
-  def root = rootNode(0)
-  
-  def $accessInnerJsonMap(k: String): Any = parser.dereferenceObject(rootNode(0), k)
-
-  override def equals(any: Any) = any match {
-    case any: Json => rootNode(0) == any.rootNode(0)
-    case _ => false
-  }
-
-  override def hashCode = rootNode(0).hashCode & "json".hashCode
+  def $accessInnerJsonMap(k: String): Any = parser.dereferenceObject(root(0), k)
 
 }
 
@@ -140,7 +127,7 @@ trait JsonDataType[+T <: JsonDataType[T, ParserType], ParserType[S] <: JsonParse
     extends DataType[T, ParserType] {
   
   def apply(i: Int): T =
-    companion.constructRaw(rootNode, Left(i) +: path)
+    companion.constructRaw(root, Left(i) +: path)
   
   /** Combines a `selectDynamic` and an `apply`.  This is necessary due to the way dynamic
     * application is expanded. */
@@ -155,9 +142,16 @@ trait JsonDataType[+T <: JsonDataType[T, ParserType], ParserType[S] <: JsonParse
       }
     }
   
+  override def equals(any: Any) = any match {
+    case any: JsonDataType[_, _] => root(0) == any.root(0)
+    case _ => false
+  }
+
+  override def hashCode = root(0).hashCode & "json".hashCode
+
   /** Assumes the Json object wraps a `Map`, and extracts the element `key`. */
   def selectDynamic(key: String): T =
-    companion.constructRaw(rootNode, Right(key) +: path)
+    companion.constructRaw(root, Right(key) +: path)
 
   def extract(sp: Vector[String]): JsonDataType[T, ParserType] =
     if(sp.isEmpty) this else selectDynamic(sp.head).extract(sp.tail)
@@ -198,17 +192,16 @@ trait JsonDataType[+T <: JsonDataType[T, ParserType], ParserType[S] <: JsonParse
             throw TypeMismatchException(parser.getType(j), JsonTypes.Array, path.drop(t.length))
           }
         , t))
-    } } (root -> path)
+    } } (root(0) -> path)
 }
 
 trait MutableJsonDataType[+T <: MutableJsonDataType[T, ParserType], ParserType[S] <: JsonParser[S]] extends JsonDataType[T, ParserType] {
 }
 
-class JsonBuffer(private[json] val rootNode: Array[Any], val path: Vector[Either[Int, String]] = Vector())
+class JsonBuffer(private[json] val root: Array[Any], val path: Vector[Either[Int, String]] = Vector())
     (implicit val parser: JsonBufferParser[_]) extends MutableJsonDataType[JsonBuffer, JsonBufferParser] {
  
   val companion = JsonBuffer
-  def root = rootNode(0)
   
   /** Updates the element `key` of the JSON object with the value `v` */
   def updateDynamic(key: String)(v: Jsonized): Unit =
@@ -222,12 +215,12 @@ class JsonBuffer(private[json] val rootNode: Array[Any], val path: Vector[Either
   protected def updateParents(p: Vector[Either[Int, String]], newVal: Any): Unit =
     p match {
       case Vector() =>
-        rootNode(0) = newVal
+        root(0) = newVal
       case Left(idx) +: init =>
-        val jb = companion.constructRaw(rootNode, init)
+        val jb = companion.constructRaw(root, init)
         updateParents(init, parser.setArrayValue(jb.normalizeOrNil, idx, newVal))
       case Right(key) +: init =>
-        val jb = companion.constructRaw(rootNode, init)
+        val jb = companion.constructRaw(root, init)
         updateParents(init, parser.setObjectValue(jb.normalizeOrEmpty, key, newVal))
     }
 
