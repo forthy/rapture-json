@@ -32,14 +32,15 @@ object DataCompanion {
 
 trait DataType[+T <: DataType[T, ParserType], ParserType[S] <: DataParser[S]] extends Dynamic {
   def companion: DataCompanion[T, ParserType]
-  private[json] def root: Array[Any]
+  protected def root: Array[Any]
   implicit def parser: ParserType[_]
   def path: Vector[Either[Int, String]]
-  private[json] def normalize(orEmpty: Boolean): Any
+  protected def doNormalize(orEmpty: Boolean): Any
+  def normalize = doNormalize(false)
   
   def format: String = companion.format(Some(root(0)), 0, parser, " ", "\n")
 
-  def serialize: String = companion.format(Some(normalize(false)), 0, parser, "", "")
+  def serialize: String = companion.format(Some(normalize), 0, parser, "", "")
 }
 
 trait DataCompanion[+Type <: DataType[Type, ParserType], ParserType[S] <: DataParser[S]] {
@@ -134,9 +135,9 @@ trait JsonDataType[+T <: JsonDataType[T, ParserType], ParserType[S] <: JsonParse
   def applyDynamic(key: String)(i: Int): T = selectDynamic(key).apply(i)
   
   /** Assumes the Json object is wrapping a `T`, and casts (intelligently) to that type. */
-  def get[T](implicit ext: Extractor[T], eh: ExceptionHandler): eh.![T, JsonGetException] =
+  def as[T](implicit ext: Extractor[T], eh: ExceptionHandler): eh.![T, DataGetException] =
     eh wrap {
-      try ext.rawConstruct(normalize(false), parser) catch {
+      try ext.rawConstruct(normalize, parser) catch {
         case TypeMismatchException(f, e, _) => throw TypeMismatchException(f, e, path)
         case e: MissingValueException => throw e
       }
@@ -157,10 +158,11 @@ trait JsonDataType[+T <: JsonDataType[T, ParserType], ParserType[S] <: JsonParse
     if(sp.isEmpty) this else selectDynamic(sp.head).extract(sp.tail)
   
   override def toString =
-    try Json.format(Some(normalize(false)), 0, parser) catch {
-      case e: JsonGetException => "undefined"
+    try Json.format(Some(normalize), 0, parser) catch {
+      case e: DataGetException => "undefined"
     }
-  private[json] def normalize(orEmpty: Boolean): Any =
+  
+  protected def doNormalize(orEmpty: Boolean): Any =
     yCombinator[(Any, Vector[Either[Int, String]]), Any] { fn => _ match {
       case (j, Vector()) => j: Any
       case (j, t :+ Right(k)) =>
@@ -195,16 +197,12 @@ trait JsonDataType[+T <: JsonDataType[T, ParserType], ParserType[S] <: JsonParse
     } } (root(0) -> path)
 }
 
-trait MutableJsonDataType[+T <: MutableJsonDataType[T, ParserType], ParserType[S] <: JsonParser[S]] extends JsonDataType[T, ParserType] {
-}
-
-class JsonBuffer(private[json] val root: Array[Any], val path: Vector[Either[Int, String]] = Vector())
-    (implicit val parser: JsonBufferParser[_]) extends MutableJsonDataType[JsonBuffer, JsonBufferParser] {
+class JsonBuffer(protected val root: Array[Any], val path: Vector[Either[Int, String]] = Vector())(implicit val parser: JsonBufferParser[_]) extends JsonDataType[JsonBuffer, JsonBufferParser] {
  
   val companion = JsonBuffer
   
   /** Updates the element `key` of the JSON object with the value `v` */
-  def updateDynamic(key: String)(v: Jsonized): Unit =
+  def updateDynamic(key: String)(v: ForcedConversion): Unit =
     updateParents(path, parser.setObjectValue(normalizeOrEmpty, key, v.value))
  
   /** Updates the `i`th element of the JSON array with the value `v` */
@@ -225,11 +223,11 @@ class JsonBuffer(private[json] val root: Array[Any], val path: Vector[Either[Int
     }
 
   /** Removes the specified key from the JSON object */
-  def -=(k: String): Unit = updateParents(path, parser.removeObjectValue(normalize(true), k))
+  def -=(k: String): Unit = updateParents(path, parser.removeObjectValue(doNormalize(true), k))
 
   /** Adds the specified value to the JSON array */
   def +=[T: Jsonizer](v: T): Unit = {
-    val r = normalize(true)
+    val r = doNormalize(true)
     val insert = if(r == DataCompanion.Empty) parser.fromArray(Nil) else r
     updateParents(path, parser.addArrayValue(insert, implicitly[Jsonizer[T]].jsonize(v)))
   }
@@ -237,10 +235,10 @@ class JsonBuffer(private[json] val root: Array[Any], val path: Vector[Either[Int
   /** Navigates the JSON using the `List[String]` parameter, and returns the element at that
     * position in the tree. */
   private[json] def normalizeOrNil: Any =
-    try normalize(false) catch { case e: Exception => parser.fromArray(List()) }
+    try normalize catch { case e: Exception => parser.fromArray(List()) }
 
   private[json] def normalizeOrEmpty: Any =
-    try normalize(false) catch { case e: Exception => parser.fromObject(Map()) }
+    try normalize catch { case e: Exception => parser.fromObject(Map()) }
 }
 
 class AnyExtractor[T](cast: Json => T) extends BasicExtractor[T](x => cast(x))
@@ -257,25 +255,9 @@ case class CascadeExtractor[T](casts: (Json => T)*) extends Extractor[T] {
   }
 }
 
-object JsonGetException {
-  def stringifyPath(path: Vector[Either[Int, String]]) = path.reverse map {
-    case Left(i) => s"($i)"
-    case Right(s) => s".$s"
-  } mkString ""
+object ForcedConversion {
+  implicit def forceConversion[T: Jsonizer](t: T) =
+    ForcedConversion(implicitly[Jsonizer[T]].jsonize(t))
 }
-
-sealed class JsonGetException(msg: String) extends RuntimeException(msg)
-
-case class TypeMismatchException(foundType: JsonTypes.JsonType,
-    expectedType: JsonTypes.JsonType, path: Vector[Either[Int, String]]) extends
-    JsonGetException(s"Type mismatch: Expected ${expectedType.name} but found "+
-    s"${foundType.name} at json${JsonGetException.stringifyPath(path)}")
-
-case class MissingValueException(path: Vector[Either[Int, String]])
-  extends JsonGetException(s"Missing value: json${JsonGetException.stringifyPath(path)}")
-
-object Jsonized {
-  implicit def toJsonized[T: Jsonizer](t: T) = Jsonized(implicitly[Jsonizer[T]].jsonize(t))
-}
-case class Jsonized(private[json] var value: Any)
+case class ForcedConversion(var value: Any)
 

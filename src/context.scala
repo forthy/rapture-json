@@ -57,13 +57,13 @@ class JsonStrings(sc: StringContext)(implicit parser: JsonParser[String])
         def extract(any: Any, path: Vector[String]): Unit = {
           import strategy.throwExceptions
           if(parser.isNumber(any)) {
-            if(json.extract(path).get[Double](Extractor.doubleExtractor, ?) !=
+            if(json.extract(path).as[Double](Extractor.doubleExtractor, ?) !=
                 parser.getDouble(any)) throw new Exception("Value doesn't match")
           } else if(parser.isString(any)) {
-            if(json.extract(path).get[String](Extractor.stringExtractor, ?) !=
+            if(json.extract(path).as[String](Extractor.stringExtractor, ?) !=
                 parser.getString(any)) throw new Exception("Value doesn't match")
           } else if(parser.isBoolean(any)) {
-            if(json.extract(path).get[Boolean](Extractor.booleanExtractor, ?) !=
+            if(json.extract(path).as[Boolean](Extractor.booleanExtractor, ?) !=
                 parser.getBoolean(any)) throw new Exception("Value doesn't match")
           } else if(parser.isObject(any)) {
             parser.getObject(any) foreach { case (k, v) =>
@@ -81,7 +81,7 @@ class JsonStrings(sc: StringContext)(implicit parser: JsonParser[String])
 
         val extracts = paths.map(json.extract)
         if(extracts.exists(_.root(0) == null)) None
-        else Some(extracts map { x => new Json(Array(x.normalize(false))) })
+        else Some(extracts map { x => new Json(Array(x.normalize)) })
       } catch { case e: Exception => None }
   }
 }
