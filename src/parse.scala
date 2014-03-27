@@ -44,9 +44,41 @@ object JsonTypes {
   case object Undefined extends JsonType("undefined")
 }
 
-/** Represents a JSON parser implementation which is used throughout this library */
-trait JsonParser[Source] {
+trait DataParser[-Source] {
   def parse(s: Source): Option[Any]
+  
+  /** Dereferences the named element within the JSON object. */
+  def dereferenceObject(obj: Any, element: String): Any =
+    getObject(obj)(element)
+  
+  /** Returns at `Iterator[String]` over the names of the elements in the JSON object. */
+  def getKeys(obj: Any): Iterator[String] =
+    getObject(obj).keys.iterator
+ 
+  /** Gets the indexed element from the parsed JSON array. */
+  def dereferenceArray(array: Any, element: Int): Any =
+    getArray(array)(element)
+  
+  /** Tests if the element represents an `Object` */
+  def isObject(any: Any): Boolean
+  
+  /** Tests if the element represents an `Array` */
+  def isArray(any: Any): Boolean
+  
+  /** Extracts a JSON object as a `Map[String, Any]` from the parsed JSON. */
+  def getObject(obj: Any): Map[String, Any]
+
+  def fromObject(obj: Map[String, Any]): Any
+
+  /** Extracts a JSON array as a `Seq[Any]` from the parsed JSON. */
+  def getArray(array: Any): Seq[Any]
+
+  def fromArray(array: Seq[Any]): Any
+
+}
+
+/** Represents a JSON parser implementation which is used throughout this library */
+trait JsonParser[-Source] extends DataParser[Source] {
 
   /** Extracts a `Boolean` from the parsed JSON. */
   def getBoolean(boolean: Any): Boolean
@@ -63,28 +95,6 @@ trait JsonParser[Source] {
 
   def fromDouble(number: Double): Any
 
-  /** Extracts a JSON object as a `Map[String, Any]` from the parsed JSON. */
-  def getObject(obj: Any): Map[String, Any]
-
-  def fromObject(obj: Map[String, Any]): Any
-
-  /** Extracts a JSON array as a `Seq[Any]` from the parsed JSON. */
-  def getArray(array: Any): Seq[Any]
-
-  def fromArray(array: Seq[Any]): Any
-
-  /** Dereferences the named element within the JSON object. */
-  def dereferenceObject(obj: Any, element: String): Any =
-    getObject(obj)(element)
-  
-  /** Returns at `Iterator[String]` over the names of the elements in the JSON object. */
-  def getKeys(obj: Any): Iterator[String] =
-    getObject(obj).keys.iterator
- 
-  /** Gets the indexed element from the parsed JSON array. */
-  def dereferenceArray(array: Any, element: Int): Any =
-    getArray(array)(element)
-
   /** Tests if the element represents a `Boolean` */
   def isBoolean(any: Any): Boolean
   
@@ -93,12 +103,6 @@ trait JsonParser[Source] {
   
   /** Tests if the element represents a number */
   def isNumber(any: Any): Boolean
-  
-  /** Tests if the element represents an `Object` */
-  def isObject(any: Any): Boolean
-  
-  /** Tests if the element represents an `Array` */
-  def isArray(any: Any): Boolean
   
   /** Tests if the element represents a `null` */
   def isNull(any: Any): Boolean
@@ -180,7 +184,7 @@ object ScalaJsonParser extends JsonBufferParser[String] {
   }
   
   def setArrayValue(array: Any, index: Int, value: Any): Any = array match {
-    case array: List[_] => array.patch(index, List(value), 1)
+    case array: List[_] => array.padTo(index, null).patch(index, List(value), 1)
     case _ => throw TypeMismatchException(getType(array), JsonTypes.Array, Vector())
   }
   

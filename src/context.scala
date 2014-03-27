@@ -81,7 +81,7 @@ class JsonStrings(sc: StringContext)(implicit parser: JsonParser[String])
 
         val extracts = paths.map(json.extract)
         if(extracts.exists(_.root == null)) None
-        else Some(extracts map { x => new Json(Array(x.normalize)) })
+        else Some(extracts map { x => new Json(Array(x.normalize(false))) })
       } catch { case e: Exception => None }
   }
 }
