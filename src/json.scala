@@ -41,6 +41,30 @@ trait DataType[+T <: DataType[T, ParserType], ParserType[S] <: DataParser[S]] ex
   def format: String = companion.format(Some(root(0)), 0, parser, " ", "\n")
 
   def serialize: String = companion.format(Some(normalize), 0, parser, "", "")
+  
+  def apply(i: Int): T =
+    companion.constructRaw(root, Left(i) +: path)
+  
+  def applyDynamic(key: String)(i: Int): T = selectDynamic(key).apply(i)
+  
+  override def equals(any: Any) = any match {
+    case any: JsonDataType[_, _] => root(0) == any.root(0)
+    case _ => false
+  }
+
+  def as[T](implicit ext: Extractor[T], eh: ExceptionHandler): eh.![T, DataGetException]
+  
+  override def hashCode = root(0).hashCode & "json".hashCode
+
+  /** Assumes the Json object wraps a `Map`, and extracts the element `key`. */
+  def selectDynamic(key: String): T =
+    companion.constructRaw(root, Right(key) +: path)
+
+  def extract(sp: Vector[String]): DataType[T, ParserType] =
+    if(sp.isEmpty) this else selectDynamic(sp.head).extract(sp.tail)
+  
+  override def toString = format
+  
 }
 
 trait DataCompanion[+Type <: DataType[Type, ParserType], ParserType[S] <: DataParser[S]] {
@@ -127,13 +151,6 @@ class Json(val root: Array[Any], val path: Vector[Either[Int, String]] = Vector(
 trait JsonDataType[+T <: JsonDataType[T, ParserType], ParserType[S] <: JsonParser[S]]
     extends DataType[T, ParserType] {
   
-  def apply(i: Int): T =
-    companion.constructRaw(root, Left(i) +: path)
-  
-  /** Combines a `selectDynamic` and an `apply`.  This is necessary due to the way dynamic
-    * application is expanded. */
-  def applyDynamic(key: String)(i: Int): T = selectDynamic(key).apply(i)
-  
   /** Assumes the Json object is wrapping a `T`, and casts (intelligently) to that type. */
   def as[T](implicit ext: Extractor[T], eh: ExceptionHandler): eh.![T, DataGetException] =
     eh wrap {
@@ -141,25 +158,6 @@ trait JsonDataType[+T <: JsonDataType[T, ParserType], ParserType[S] <: JsonParse
         case TypeMismatchException(f, e, _) => throw TypeMismatchException(f, e, path)
         case e: MissingValueException => throw e
       }
-    }
-  
-  override def equals(any: Any) = any match {
-    case any: JsonDataType[_, _] => root(0) == any.root(0)
-    case _ => false
-  }
-
-  override def hashCode = root(0).hashCode & "json".hashCode
-
-  /** Assumes the Json object wraps a `Map`, and extracts the element `key`. */
-  def selectDynamic(key: String): T =
-    companion.constructRaw(root, Right(key) +: path)
-
-  def extract(sp: Vector[String]): JsonDataType[T, ParserType] =
-    if(sp.isEmpty) this else selectDynamic(sp.head).extract(sp.tail)
-  
-  override def toString =
-    try Json.format(Some(normalize), 0, parser) catch {
-      case e: DataGetException => "undefined"
     }
   
   protected def doNormalize(orEmpty: Boolean): Any =
@@ -234,10 +232,10 @@ class JsonBuffer(protected val root: Array[Any], val path: Vector[Either[Int, St
   
   /** Navigates the JSON using the `List[String]` parameter, and returns the element at that
     * position in the tree. */
-  private[json] def normalizeOrNil: Any =
+  protected def normalizeOrNil: Any =
     try normalize catch { case e: Exception => parser.fromArray(List()) }
 
-  private[json] def normalizeOrEmpty: Any =
+  protected def normalizeOrEmpty: Any =
     try normalize catch { case e: Exception => parser.fromObject(Map()) }
 }
 
