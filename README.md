@@ -1,3 +1,4 @@
+[![Build Status](https://travis-ci.org/propensive/rapture-json.png?branch=master)](https://travis-ci.org/propensive/rapture-json)
 Rapture JSON
 ============
 
