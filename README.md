@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/propensive/rapture-json.png?branch=master)](https://travis-ci.org/propensive/rapture-json)
+[![Build Status](https://travis-ci.org/propensive/rapture-json.png?branch=scala-2.10)](https://travis-ci.org/propensive/rapture-json)
 
 # Rapture JSON
 
