@@ -114,9 +114,11 @@ trait DataType[+T <: DataType[T, ParserType], ParserType[S] <: DataParser[S]] ex
     companion.constructRaw(root, Left(i) +: path)
   
   def applyDynamic(key: String)(i: Int): T = selectDynamic(key).apply(i)
-  
+ 
+  private type SomeJsonDataType = JsonDataType[_, P] forSome { type P[_] } 
+
   override def equals(any: Any) = any match {
-    case any: JsonDataType[_, _] => root(0) == any.root(0)
+    case any: SomeJsonDataType => root(0) == any.root(0)
     case _ => false
   }
 
