@@ -106,7 +106,7 @@ trait DataType[+T <: DataType[T, ParserType], ParserType[S] <: DataParser[S]] ex
   def normalizeOrEmpty: Any =
     try normalize catch { case e: Exception => parser.fromObject(Map()) }
 
-  def format: String = companion.format(Some(root(0)), 0, parser, " ", "\n")
+  def format: String = companion.format(Some(normalize), 0, parser, " ", "\n")
 
   def serialize: String = companion.format(Some(normalize), 0, parser, "", "")
   
