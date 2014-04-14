@@ -30,7 +30,7 @@ import language.higherKinds
 
 object Macros {
  
-  def extractorMacro[T: c.WeakTypeTag](c: Context): c.Expr[Extractor[T]] = {
+  def extractorMacro[T: c.WeakTypeTag](c: blackbox.Context): c.Expr[Extractor[T]] = {
     import c.universe._
 
     require(weakTypeOf[T].typeSymbol.asClass.isCaseClass)
@@ -39,7 +39,7 @@ object Macros {
 
     // FIXME: This will perform badly for large objects, as the map extraction is applied to
     // all elements once for every element
-    val params = weakTypeOf[T].declarations collect {
+    val params = weakTypeOf[T].decls collect {
       case m: MethodSymbol if m.isCaseAccessor => m.asMethod
     } map { p =>
       Apply(
@@ -47,19 +47,19 @@ object Macros {
           c.Expr[Extractor[_]](
             c.inferImplicitValue(appliedType(extractor, List(p.returnType)), false, false)
           ).tree,
-          newTermName("rawConstruct")
+          TermName("rawConstruct")
         ),
         List(
           Apply(
             Select(
-              Ident(newTermName("json")),
-              newTermName("$accessInnerJsonMap")
+              Ident(TermName("json")),
+              TermName("$accessInnerJsonMap")
             ),
             List(Literal(Constant(p.name.toString)))
           ),
           Select(
-            Ident(newTermName("json")),
-            newTermName("parser")
+            Ident(TermName("json")),
+            TermName("parser")
           )
         )
       )
@@ -71,7 +71,7 @@ object Macros {
           New(
             TypeTree(weakTypeOf[T])
           ),
-          nme.CONSTRUCTOR
+          termNames.CONSTRUCTOR
         ),
         params.to[List]
       )
@@ -84,7 +84,7 @@ object Macros {
     reify(new Extractor[T] { def construct(json: Json): T = construction.splice })
   }
 
-  def jsonizerMacro[T: c.WeakTypeTag](c: Context)(parser: c.Expr[JsonParser[_]]): c.Expr[Jsonizer[T]] = {
+  def jsonizerMacro[T: c.WeakTypeTag](c: blackbox.Context)(parser: c.Expr[JsonParser[_]]): c.Expr[Jsonizer[T]] = {
     import c.universe._
 
     val tpe = weakTypeOf[T].typeSymbol.asClass
@@ -92,7 +92,7 @@ object Macros {
 
     val construction = if(tpe.isCaseClass) {
 
-      val params = weakTypeOf[T].declarations collect {
+      val params = weakTypeOf[T].decls collect {
         case m: MethodSymbol if m.isCaseAccessor => m.asMethod
       } map { p =>
         Apply(
@@ -100,23 +100,23 @@ object Macros {
             Apply(
               Select(
                 Ident(definitions.PredefModule),
-                newTermName("any2ArrowAssoc")
+                TermName("any2ArrowAssoc")
               ),
               List(
                 Literal(Constant(p.name.toString))
               )
             ),
-            newTermName("$minus$greater")
+            TermName("$minus$greater")
           ),
           List(
             Apply(
               Select(
                 c.inferImplicitValue(appliedType(jsonizer, List(p.returnType)), false, false),
-                newTermName("jsonize")
+                TermName("jsonize")
               ),
               List(
                 Select(
-                  Ident(newTermName("t")),
+                  Ident(TermName("t")),
                   p.name
                 )
               )
@@ -130,9 +130,9 @@ object Macros {
           Select(
             Select(
               Ident(definitions.PredefModule),
-              newTermName("Map")
+              TermName("Map")
             ),
-            newTermName("apply")
+            TermName("apply")
           ),
           params.to[List]
         )
@@ -140,13 +140,13 @@ object Macros {
     } else if(tpe.isSealed) {
       c.Expr[Map[String, Any]](
         Match(
-          Ident(newTermName("t")),
+          Ident(TermName("t")),
           tpe.knownDirectSubclasses.to[List] map { sc =>
             CaseDef(
               Bind(
-                newTermName("v"),
+                TermName("v"),
                 Typed(
-                  Ident(nme.WILDCARD),
+                  Ident(termNames.WILDCARD),
                   Ident(sc.asClass)
                 )
               ),
@@ -154,9 +154,9 @@ object Macros {
               Apply(
                 Select(
                   c.inferImplicitValue(appliedType(jsonizer, List(sc.asType.toType)), false, false),
-                  newTermName("jsonize")
+                  TermName("jsonize")
                 ),
-                List(Ident(newTermName("v")))
+                List(Ident(TermName("v")))
               )
             )
           }
