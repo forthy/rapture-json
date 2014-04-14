@@ -81,7 +81,11 @@ object Macros {
       )*/
     )
 
-    reify(new Extractor[T] { def construct(json: Json): T = construction.splice })
+    reify(new Extractor[T] {
+      def construct(json: Json): T = construction.splice
+      // Added this line due to apparent compiler bug with abstract method error
+      override def rawConstruct(any: Any, parser: JsonParser[_]): T = construct(new Json(Array(any))(parser))
+    })
   }
 
   def jsonizerMacro[T: c.WeakTypeTag](c: Context)(parser: c.Expr[JsonParser[_]]): c.Expr[Jsonizer[T]] = {
