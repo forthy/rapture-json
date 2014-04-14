@@ -10,14 +10,14 @@ Rapture JSON is *managed*. This means that the API is expected to continue to ev
 
 ### Availability
 
-Rapture JSON 0.9.0 is available under the Apache 2.0 License from Maven Central with group ID `com.propensive` and artifact ID `rapture-json_2.11`.
+Rapture JSON 0.9.1 is available under the Apache 2.0 License from Maven Central with group ID `com.propensive` and artifact ID `rapture-json_2.11`.
 
 #### SBT
 
 You can include Rapture JSON as a dependency in your own project by adding the following library dependency to your build file:
 
 ```scala
-libraryDependencies ++= Seq("com.propensive" %% "rapture-json" % "0.9.0")
+libraryDependencies ++= Seq("com.propensive" %% "rapture-json" % "0.9.1")
 ```
 
 #### Maven
@@ -28,7 +28,7 @@ If you use Maven, include the following dependency:
 <dependency>
   <groupId>com.propensive</groupId>
   <artifactId>rapture-json_2.11</artifactId>
-  <version>0.9.0<version>
+  <version>0.9.1<version>
 </dependency>
 ```
 
