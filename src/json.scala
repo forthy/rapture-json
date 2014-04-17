@@ -24,7 +24,8 @@ import rapture.core._
 
 import scala.collection.mutable.{ListBuffer, HashMap}
 
-import language.{dynamics, higherKinds}
+import language.dynamics
+import language.higherKinds
 
 object DataCompanion {
   object Empty
