@@ -42,28 +42,33 @@ object Macros {
     val params = weakTypeOf[T].declarations collect {
       case m: MethodSymbol if m.isCaseAccessor => m.asMethod
     } map { p =>
+
+      val paramValue = c.Expr[Any](Apply(
+        Select(
+          Ident(newTermName("json")),
+          newTermName("$accessInnerJsonMap")
+        ),
+        List(Literal(Constant(p.name.toString)))
+      ))
+
+      val parserValue = c.Expr[JsonParser[_]](Select(
+        Ident(newTermName("json")),
+        newTermName("parser")
+      ))
+
+      val newArray = reify(new Json(Array(paramValue.splice))(parserValue.splice))
+
       Apply(
         Select(
           c.Expr[Extractor[_]](
             c.inferImplicitValue(appliedType(extractor, List(p.returnType)), false, false)
           ).tree,
-          newTermName("rawConstruct")
+          newTermName("construct")
         ),
-        List(
-          Apply(
-            Select(
-              Ident(newTermName("json")),
-              newTermName("$accessInnerJsonMap")
-            ),
-            List(Literal(Constant(p.name.toString)))
-          ),
-          Select(
-            Ident(newTermName("json")),
-            newTermName("parser")
-          )
-        )
+        List(newArray.tree)
       )
     }
+
 
     val construction = c.Expr(
       Apply(
@@ -84,7 +89,7 @@ object Macros {
     reify(new Extractor[T] {
       def construct(json: Json): T = construction.splice
       // Added this line due to apparent compiler bug with abstract method error
-      override def rawConstruct(any: Any, parser: JsonParser[_]): T = construct(new Json(Array(any))(parser))
+      //override def rawConstruct(any: Any, parser: JsonParser[_]): T = construct(new Json(Array(any))(parser))
     })
   }
 
@@ -206,26 +211,27 @@ object Extractor {
       scala.collection.generic.CanBuildFrom[Nothing, T, Coll[T]], ext: Extractor[T]):
       Extractor[Coll[T]] =
     BasicExtractor[Coll[T]]({ x =>
-      x.parser.getArray(x.root(0)).to[List].map(ext.rawConstruct(_, x.parser)).to[Coll]
+      x.parser.getArray(x.root(0)).to[List].map(v => ext.construct(new Json(Array(v))(x.parser))).to[Coll]
     })
 
   implicit def optionExtractor[T](implicit ext: Extractor[T]): Extractor[Option[T]] =
     new BasicExtractor[Option[T]](x =>
-      if(x.root(0) == null) None else Some(x.root(0): Any) map (ext.rawConstruct(_, x.parser))
+      if(x.root(0) == null) None else Some(x.root(0): Any) map (v => ext.construct(new Json(Array(v))(x.parser)))
     ) { override def errorToNull = true }
   
   implicit def mapExtractor[T](implicit ext: Extractor[T]): Extractor[Map[String, T]] =
     BasicExtractor[Map[String, T]](x =>
-      x.parser.getObject(x.root(0)) mapValues (ext.rawConstruct(_, x.parser))
+      x.parser.getObject(x.root(0)) mapValues (v => ext.construct(new Json(Array(v))(x.parser)))
     )
 }
 
 @implicitNotFound("cannot extract type ${T} from JSON.")
 trait Extractor[T] {
   def construct(any: Json): T
-  def rawConstruct(any: Any, parser: JsonParser[_]): T = construct(new Json(Array(any))(parser))
+  //def rawConstruct(any: Any, parser: JsonParser[_]): T = construct(new Json(Array(any))(parser))
   def errorToNull = false
 }
+
 
 object Jsonizer {
 
