@@ -137,7 +137,9 @@ trait DataType[+T <: DataType[T, ParserType], ParserType[S] <: DataParser[S]] ex
   def extract(sp: Vector[String]): DataType[T, ParserType] =
     if(sp.isEmpty) this else selectDynamic(sp.head).extract(sp.tail)
   
-  override def toString = format
+  override def toString = try format catch {
+    case e: DataGetException => "undefined"
+  }
   
 }
 
