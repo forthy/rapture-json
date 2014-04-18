@@ -64,7 +64,7 @@ trait JsonDataCompanion[+Type <: JsonDataType[Type, ParserType],
   /** Formats the JSON object for multi-line readability. */
   def format(json: Option[Any], ln: Int, parser: ParserType[_], pad: String = " ",
       brk: String = "\n"): String = {
-    val indent = " "*ln
+    val indent = pad*ln
     json match {
       case None => "null"
       case Some(j) =>
@@ -78,14 +78,14 @@ trait JsonDataCompanion[+Type <: JsonDataType[Type, ParserType],
           if(n == n.floor) n.toInt.toString else n.toString
         } else if(parser.isArray(j)) {
           List("[", parser.getArray(j) map { v =>
-            s"${indent}${pad}${format(Some(v), ln + 1, parser)}"
+            s"${indent}${pad}${format(Some(v), ln + 1, parser, pad, brk)}"
           } mkString s",${brk}", s"${indent}]") mkString brk
         } else if(parser.isObject(j)) {
           List("{", parser.getKeys(j) map { k =>
             val inner = try Some(parser.dereferenceObject(j, k)) catch {
               case e: Exception => None
             }
-            s"""${indent}${pad}"${k}":${pad}${format(inner, ln + 1, parser)}"""
+            s"""${indent}${pad}"${k}":${pad}${format(inner, ln + 1, parser, pad, brk)}"""
           } mkString s",${brk}", s"${indent}}") mkString brk
         } else if(parser.isNull(j)) "null"
         else if(j == DataCompanion.Empty) "empty"
