@@ -32,7 +32,10 @@ object DataCompanion {
 }
 
 trait DataCompanion[+Type <: DataType[Type, ParserType], ParserType[S] <: DataParser[S]] {
-  
+
+  def empty(implicit parser: ParserType[_]) =
+    construct(parser.fromObject(Map()), Vector())
+
   def construct(any: Any, path: Vector[Either[Int, String]])(implicit parser: ParserType[_]): Type = constructRaw(Array(any), path)
   
   def constructRaw(any: Array[Any], path: Vector[Either[Int, String]])(implicit parser: ParserType[_]): Type
