@@ -24,7 +24,8 @@ import rapture.core._
 
 import scala.collection.mutable.{ListBuffer, HashMap}
 
-import language.{dynamics, higherKinds}
+import language.dynamics
+import language.higherKinds
 
 object DataCompanion {
   object Empty
@@ -180,7 +181,7 @@ trait JsonDataType[+T <: JsonDataType[T, ParserType], ParserType[S] <: JsonParse
   /** Assumes the Json object is wrapping a `T`, and casts (intelligently) to that type. */
   def as[T](implicit ext: Extractor[T], eh: ExceptionHandler): eh.![T, DataGetException] =
     eh wrap {
-      try ext.rawConstruct(normalize, parser) catch {
+      try ext.construct(new Json(Array(normalize))(parser)) catch {
         case TypeMismatchException(f, e, _) => throw TypeMismatchException(f, e, path)
         case e: MissingValueException => throw e
       }

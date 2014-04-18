@@ -29,14 +29,14 @@ class JsonStrings(sc: StringContext)(implicit parser: JsonParser[String])
     extends {
   object json {
     /** Creates a new interpolated JSON object. */
-    def apply(exprs: Any*)(implicit eh: ExceptionHandler): eh.![Json, ParseException] =
+    def apply(exprs: ForcedConversion*)(implicit eh: ExceptionHandler): eh.![Json, ParseException] =
       eh.wrap {
         val sb = new StringBuilder
         val textParts = sc.parts.iterator
         val expressions = exprs.iterator
         sb.append(textParts.next())
         while(textParts.hasNext) {
-          sb.append(new Json(Array(expressions.next)).toString)
+          sb.append(new Json(Array(expressions.next.value)).toString)
           sb.append(textParts.next)
         }
         Json.parse(sb.toString)(parser, raw)
