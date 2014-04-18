@@ -24,7 +24,8 @@ import rapture.core._
 
 import scala.collection.mutable.{ListBuffer, HashMap}
 
-import language.{dynamics, higherKinds}
+import language.dynamics
+import language.higherKinds
 
 object DataCompanion {
   object Empty
@@ -180,7 +181,7 @@ trait JsonDataType[+T <: JsonDataType[T, ParserType], ParserType[S] <: JsonParse
   /** Assumes the Json object is wrapping a `T`, and casts (intelligently) to that type. */
   def as[T](implicit ext: Extractor[T], eh: ExceptionHandler): eh.![T, DataGetException] =
     eh wrap {
-      try ext.rawConstruct(normalize, parser) catch {
+      try ext.construct(new Json(Array(normalize))(parser)) catch {
         case TypeMismatchException(f, e, _) => throw TypeMismatchException(f, e, path)
         case e: MissingValueException => throw e
       }
@@ -226,6 +227,21 @@ trait JsonDataType[+T <: JsonDataType[T, ParserType], ParserType[S] <: JsonParse
 object Json extends JsonDataCompanion[Json, JsonParser] {
   def constructRaw(any: Array[Any], path: Vector[Either[Int, String]])(implicit parser: JsonParser[_]): Json =
     new Json(any, path)
+  
+  def convert(json: Json)(implicit parser: JsonParser[_]): Json = {
+    val oldParser = json.parser
+    
+    def convert(j: Any): Any =
+      if(oldParser.isString(j)) parser.fromString(oldParser.getString(j))
+      else if(oldParser.isBoolean(j)) parser.fromBoolean(oldParser.getBoolean(j))
+      else if(oldParser.isNumber(j)) parser.fromDouble(oldParser.getDouble(j))
+      else if(oldParser.isArray(j)) parser.fromArray(oldParser.getArray(j).map(convert))
+      else if(oldParser.isObject(j)) parser.fromObject(oldParser.getObject(j).mapValues(convert))
+      else null
+
+    new Json(Array(convert(json.root(0))), json.path)(parser)
+  }
+
 }
 
 /** Represents some parsed JSON. */
