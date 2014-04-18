@@ -235,6 +235,9 @@ trait Extractor[T] {
 
 object Jsonizer {
 
+  implicit def identityJsonizer(implicit parser: JsonParser[_]): Jsonizer[Json] =
+    new Jsonizer[Json] { def jsonize(j: Json) = j.value }
+  
   implicit def intJsonizer(implicit parser: JsonParser[_]): Jsonizer[Int] =
     new Jsonizer[Int] { def jsonize(i: Int) = parser.fromDouble(i.toDouble) }
   
