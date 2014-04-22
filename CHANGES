@@ -1,2 +1,3 @@
 - Any jsonizable object can now be used in a string context JSON literal
 - Fixed AbstractMethodError
+- Serialize empty arrays and objects without newlines
