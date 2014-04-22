@@ -28,12 +28,12 @@ import language.experimental.macros
 object `package` {
 
   implicit def extractorMacro[T <: Product]: Extractor[T] =
-    macro Macros.extractorMacro[T]
+    macro JsonMacros.extractorMacro[T]
   
-  implicit def serializerMacro[T <: Product](implicit parser: JsonParser[_]): Serializer[T] =
+  implicit def serializerMacro[T <: Product](implicit representation: JsonRepresentation[_]): Serializer[T] =
     macro Macros.serializerMacro[T]
   
-  implicit def jsonStrings(sc: StringContext)(implicit parser: JsonParser[String]) =
+  implicit def jsonStrings(sc: StringContext)(implicit representation: JsonRepresentation[String]) =
     new JsonStrings(sc)
 
 }

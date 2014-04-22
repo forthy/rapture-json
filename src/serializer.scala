@@ -33,45 +33,45 @@ trait Serializer[T] { def serialize(t: T): Any }
 
 object Serializer {
 
-  implicit def identitySerializer(implicit parser: JsonParser[_]): Serializer[Json] =
+  implicit def identitySerializer(implicit representation: JsonRepresentation[_]): Serializer[Json] =
     new Serializer[Json] { def serialize(j: Json) = j.root(0) }
 
-  implicit def intSerializer(implicit parser: JsonParser[_]): Serializer[Int] =
-    new Serializer[Int] { def serialize(i: Int) = parser.fromDouble(i.toDouble) }
+  implicit def intSerializer(implicit representation: JsonRepresentation[_]): Serializer[Int] =
+    new Serializer[Int] { def serialize(i: Int) = representation.fromDouble(i.toDouble) }
 
-  implicit def booleanSerializer(implicit parser: JsonParser[_]): Serializer[Boolean] =
-    new Serializer[Boolean] { def serialize(b: Boolean) = parser.fromBoolean(b) }
+  implicit def booleanSerializer(implicit representation: JsonRepresentation[_]): Serializer[Boolean] =
+    new Serializer[Boolean] { def serialize(b: Boolean) = representation.fromBoolean(b) }
 
-  implicit def stringSerializer(implicit parser: JsonParser[_]): Serializer[String] =
-    new Serializer[String] { def serialize(s: String) = parser.fromString(s) }
+  implicit def stringSerializer(implicit representation: JsonRepresentation[_]): Serializer[String] =
+    new Serializer[String] { def serialize(s: String) = representation.fromString(s) }
 
-  implicit def floatSerializer(implicit parser: JsonParser[_]): Serializer[Float] =
-    new Serializer[Float] { def serialize(f: Float) = parser.fromDouble(f.toDouble) }
+  implicit def floatSerializer(implicit representation: JsonRepresentation[_]): Serializer[Float] =
+    new Serializer[Float] { def serialize(f: Float) = representation.fromDouble(f.toDouble) }
 
-  implicit def doubleSerializer(implicit parser: JsonParser[_]): Serializer[Double] =
-    new Serializer[Double] { def serialize(d: Double) = parser.fromDouble(d) }
+  implicit def doubleSerializer(implicit representation: JsonRepresentation[_]): Serializer[Double] =
+    new Serializer[Double] { def serialize(d: Double) = representation.fromDouble(d) }
 
-  implicit def longSerializer(implicit parser: JsonParser[_]): Serializer[Long] =
-    new Serializer[Long] { def serialize(l: Long) = parser.fromDouble(l.toDouble) }
+  implicit def longSerializer(implicit representation: JsonRepresentation[_]): Serializer[Long] =
+    new Serializer[Long] { def serialize(l: Long) = representation.fromDouble(l.toDouble) }
 
-  implicit def shortSerializer(implicit parser: JsonParser[_]): Serializer[Short] =
-    new Serializer[Short] { def serialize(s: Short) = parser.fromDouble(s.toDouble) }
+  implicit def shortSerializer(implicit representation: JsonRepresentation[_]): Serializer[Short] =
+    new Serializer[Short] { def serialize(s: Short) = representation.fromDouble(s.toDouble) }
 
-  implicit def byteSerializer(implicit parser: JsonParser[_]): Serializer[Byte] =
-    new Serializer[Byte] { def serialize(b: Byte) = parser.fromDouble(b.toDouble) }
+  implicit def byteSerializer(implicit representation: JsonRepresentation[_]): Serializer[Byte] =
+    new Serializer[Byte] { def serialize(b: Byte) = representation.fromDouble(b.toDouble) }
 
-  implicit def listSerializer[T: Serializer](implicit parser: JsonParser[_]): Serializer[List[T]] =
-    new Serializer[List[T]] { def serialize(xs: List[T]) = parser.fromArray(xs.map(implicitly[Serializer[T]].serialize)) }
+  implicit def listSerializer[T: Serializer](implicit representation: JsonRepresentation[_]): Serializer[List[T]] =
+    new Serializer[List[T]] { def serialize(xs: List[T]) = representation.fromArray(xs.map(implicitly[Serializer[T]].serialize)) }
 
-  implicit def genSeqSerializer[T: Serializer](implicit parser: JsonParser[_]): Serializer[Traversable[T]] =
+  implicit def genSeqSerializer[T: Serializer](implicit representation: JsonRepresentation[_]): Serializer[Traversable[T]] =
     new Serializer[Traversable[T]] {
       def serialize(xs: Traversable[T]) =
-        parser.fromArray(xs.map(implicitly[Serializer[T]].serialize).to[List])
+        representation.fromArray(xs.map(implicitly[Serializer[T]].serialize).to[List])
     }
 
-  implicit def mapSerializer[T: Serializer](implicit parser: JsonParser[_]): Serializer[Map[String, T]] =
+  implicit def mapSerializer[T: Serializer](implicit representation: JsonRepresentation[_]): Serializer[Map[String, T]] =
     new Serializer[Map[String, T]] {
-      def serialize(m: Map[String, T]) = parser.fromObject(m.mapValues(implicitly[Serializer[T]].serialize))
+      def serialize(m: Map[String, T]) = representation.fromObject(m.mapValues(implicitly[Serializer[T]].serialize))
     }
 }
 

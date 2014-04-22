@@ -25,7 +25,7 @@ import rapture.core._
 /** Provides support for JSON literals, in the form json" { } " or json""" { } """.
   * Interpolation is used to substitute variable names into the JSON, and to extract values
   * from a JSON string. */
-class JsonStrings(sc: StringContext)(implicit parser: JsonParser[String])
+class JsonStrings(sc: StringContext)(implicit representation: JsonRepresentation[String])
     extends {
   object json {
     /** Creates a new interpolated JSON object. */
@@ -39,7 +39,7 @@ class JsonStrings(sc: StringContext)(implicit parser: JsonParser[String])
           sb.append(new Json(Array(expressions.next.value)).toString)
           sb.append(textParts.next)
         }
-        Json.parse(sb.toString)(parser, raw)
+        Json.parse(sb.toString)(representation, raw)
       }
 
     /** Extracts values in the structure specified from parsed JSON.  Each element in the JSON
@@ -56,18 +56,18 @@ class JsonStrings(sc: StringContext)(implicit parser: JsonParser[String])
         
         def extract(any: Any, path: Vector[String]): Unit = {
           import strategy.throwExceptions
-          if(parser.isNumber(any)) {
+          if(representation.isNumber(any)) {
             if(json.extract(path).as[Double](Extractor.doubleExtractor, ?) !=
-                parser.getDouble(any)) throw new Exception("Value doesn't match")
-          } else if(parser.isString(any)) {
+                representation.getDouble(any)) throw new Exception("Value doesn't match")
+          } else if(representation.isString(any)) {
             if(json.extract(path).as[String](Extractor.stringExtractor, ?) !=
-                parser.getString(any)) throw new Exception("Value doesn't match")
-          } else if(parser.isBoolean(any)) {
+                representation.getString(any)) throw new Exception("Value doesn't match")
+          } else if(representation.isBoolean(any)) {
             if(json.extract(path).as[Boolean](Extractor.booleanExtractor, ?) !=
-                parser.getBoolean(any)) throw new Exception("Value doesn't match")
-          } else if(parser.isObject(any)) {
-            parser.getObject(any) foreach { case (k, v) =>
-              if(parser.isString(v)) parser.getString(v) match {
+                representation.getBoolean(any)) throw new Exception("Value doesn't match")
+          } else if(representation.isObject(any)) {
+            representation.getObject(any) foreach { case (k, v) =>
+              if(representation.isString(v)) representation.getString(v) match {
                 case PlaceholderNumber(n) =>
                   paths(n.toInt) = path :+ k
                 case _ => extract(v, path :+ k)
@@ -77,7 +77,7 @@ class JsonStrings(sc: StringContext)(implicit parser: JsonParser[String])
         }
             
 
-        extract(parser.parse(txt).get, Vector())
+        extract(representation.parse(txt).get, Vector())
 
         val extracts = paths.map(json.extract)
         if(extracts.exists(_.root(0) == null)) None

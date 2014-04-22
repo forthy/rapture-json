@@ -23,13 +23,13 @@ package rapture.json
 package jsonParsers {
   package scalaJson {
     object `package` {
-      implicit val scalaJsonParser = ScalaJsonParser
+      implicit val scalaJsonRepresentation = ScalaJsonRepresentation
     }
   }
 }
 
-/** The default JSON parser implementation */
-object ScalaJsonParser extends JsonBufferParser[String] {
+/** The default JSON representation implementation */
+object ScalaJsonRepresentation extends JsonBufferRepresentation[String] {
   
   import scala.util.parsing.json._
 

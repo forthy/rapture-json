@@ -31,37 +31,37 @@ object DataCompanion {
   object Empty
 }
 
-trait DataCompanion[+Type <: DataType[Type, ParserType], ParserType[S] <: DataParser[S]] {
+trait DataCompanion[+Type <: DataType[Type, RepresentationType], RepresentationType[S] <: DataRepresentation[S]] {
 
-  def empty(implicit parser: ParserType[_]) =
-    construct(parser.fromObject(Map()), Vector())
+  def empty(implicit representation: RepresentationType[_]) =
+    construct(representation.fromObject(Map()), Vector())
 
-  def construct(any: Any, path: Vector[Either[Int, String]])(implicit parser: ParserType[_]): Type = constructRaw(Array(any), path)
+  def construct(any: Any, path: Vector[Either[Int, String]])(implicit representation: RepresentationType[_]): Type = constructRaw(Array(any), path)
 
-  def constructRaw(any: Array[Any], path: Vector[Either[Int, String]])(implicit parser: ParserType[_]): Type
+  def constructRaw(any: Array[Any], path: Vector[Either[Int, String]])(implicit representation: RepresentationType[_]): Type
 
-  def parse[Source: ParserType](s: Source)(implicit eh: ExceptionHandler):
+  def parse[Source: RepresentationType](s: Source)(implicit eh: ExceptionHandler):
       eh.![Type, ParseException] = eh.wrap {
-    construct(try implicitly[ParserType[Source]].parse(s).get catch {
+    construct(try implicitly[RepresentationType[Source]].parse(s).get catch {
       case e: NoSuchElementException => throw new ParseException(s.toString)
     }, Vector())
   }
 
-  def apply[T: Serializer](t: T)(implicit parser: ParserType[_]): Type =
+  def apply[T: Serializer](t: T)(implicit representation: RepresentationType[_]): Type =
     construct(implicitly[Serializer[T]].serialize(t), Vector())
 
-  def unapply(value: Any)(implicit parser: ParserType[_]): Option[Type] =
+  def unapply(value: Any)(implicit representation: RepresentationType[_]): Option[Type] =
     Some(construct(value, Vector()))
 
-  def format(value: Option[Any], ln: Int, parser: ParserType[_], pad: String,
+  def format(value: Option[Any], ln: Int, representation: RepresentationType[_], pad: String,
       brk: String): String
 
 }
 
-trait DataType[+T <: DataType[T, ParserType], ParserType[S] <: DataParser[S]] extends Dynamic {
-  def companion: DataCompanion[T, ParserType]
+trait DataType[+T <: DataType[T, RepresentationType], RepresentationType[S] <: DataRepresentation[S]] extends Dynamic {
+  def companion: DataCompanion[T, RepresentationType]
   protected def root: Array[Any]
-  implicit def parser: ParserType[_]
+  implicit def representation: RepresentationType[_]
   def path: Vector[Either[Int, String]]
   protected def doNormalize(orEmpty: Boolean): Any
   def normalize = doNormalize(false)
@@ -69,14 +69,14 @@ trait DataType[+T <: DataType[T, ParserType], ParserType[S] <: DataParser[S]] ex
   /** Navigates the JSON using the `List[String]` parameter, and returns the element at that
     * position in the tree. */
   def normalizeOrNil: Any =
-    try normalize catch { case e: Exception => parser.fromArray(List()) }
+    try normalize catch { case e: Exception => representation.fromArray(List()) }
 
   def normalizeOrEmpty: Any =
-    try normalize catch { case e: Exception => parser.fromObject(Map()) }
+    try normalize catch { case e: Exception => representation.fromObject(Map()) }
 
-  def format: String = companion.format(Some(normalize), 0, parser, " ", "\n")
+  def format: String = companion.format(Some(normalize), 0, representation, " ", "\n")
 
-  def serialize: String = companion.format(Some(normalize), 0, parser, "", "")
+  def serialize: String = companion.format(Some(normalize), 0, representation, "", "")
 
   def apply(i: Int): T =
     companion.constructRaw(root, Left(i) +: path)
@@ -98,7 +98,7 @@ trait DataType[+T <: DataType[T, ParserType], ParserType[S] <: DataParser[S]] ex
   def selectDynamic(key: String): T =
     companion.constructRaw(root, Right(key) +: path)
 
-  def extract(sp: Vector[String]): DataType[T, ParserType] =
+  def extract(sp: Vector[String]): DataType[T, RepresentationType] =
     if(sp.isEmpty) this else selectDynamic(sp.head).extract(sp.tail)
 
   override def toString = try format catch {
@@ -107,8 +107,8 @@ trait DataType[+T <: DataType[T, ParserType], ParserType[S] <: DataParser[S]] ex
 
 }
 
-trait MutableDataType[+T <: DataType[T, ParserType], ParserType[S] <: MutableDataParser[S]]
-    extends DataType[T, ParserType] {
+trait MutableDataType[+T <: DataType[T, RepresentationType], RepresentationType[S] <: MutableDataRepresentation[S]]
+    extends DataType[T, RepresentationType] {
 
   def setRoot(value: Any): Unit
 
@@ -117,29 +117,29 @@ trait MutableDataType[+T <: DataType[T, ParserType], ParserType[S] <: MutableDat
       setRoot(newVal)
     case Left(idx) +: init =>
       val jb = companion.constructRaw(root, init)
-      updateParents(init, parser.setArrayValue(jb.normalizeOrNil, idx, newVal))
+      updateParents(init, representation.setArrayValue(jb.normalizeOrNil, idx, newVal))
     case Right(key) +: init =>
       val jb = companion.constructRaw(root, init)
-      updateParents(init, parser.setObjectValue(jb.normalizeOrEmpty, key, newVal))
+      updateParents(init, representation.setObjectValue(jb.normalizeOrEmpty, key, newVal))
   }
 
   /** Updates the element `key` of the JSON object with the value `v` */
   def updateDynamic(key: String)(v: ForcedConversion): Unit =
-    updateParents(path, parser.setObjectValue(normalizeOrEmpty, key, v.value))
+    updateParents(path, representation.setObjectValue(normalizeOrEmpty, key, v.value))
 
   /** Updates the `i`th element of the JSON array with the value `v` */
   def update[T: Serializer](i: Int, v: T): Unit =
-    updateParents(path, parser.setArrayValue(normalizeOrNil, i,
+    updateParents(path, representation.setArrayValue(normalizeOrNil, i,
         implicitly[Serializer[T]].serialize(v)))
 
   /** Removes the specified key from the JSON object */
-  def -=(k: String): Unit = updateParents(path, parser.removeObjectValue(doNormalize(true), k))
+  def -=(k: String): Unit = updateParents(path, representation.removeObjectValue(doNormalize(true), k))
 
   /** Adds the specified value to the JSON array */
   def +=[T: Serializer](v: T): Unit = {
     val r = doNormalize(true)
-    val insert = if(r == DataCompanion.Empty) parser.fromArray(Nil) else r
-    updateParents(path, parser.addArrayValue(insert, implicitly[Serializer[T]].serialize(v)))
+    val insert = if(r == DataCompanion.Empty) representation.fromArray(Nil) else r
+    updateParents(path, representation.addArrayValue(insert, implicitly[Serializer[T]].serialize(v)))
   }
 
 }

@@ -28,9 +28,14 @@ import scala.annotation._
 import language.experimental.macros
 import language.higherKinds
 
+object JsonMacros {
+  def extractorMacro[T: c.WeakTypeTag](c: Context): c.Expr[Extractor[T]] =
+    Macros.extractorMacro[T, Json](c)
+}
+
 object Macros {
  
-  def extractorMacro[T: c.WeakTypeTag](c: Context): c.Expr[Extractor[T]] = {
+  def extractorMacro[T: c.WeakTypeTag, Data: c.WeakTypeTag](c: Context): c.Expr[Extractor[T]] = {
     import c.universe._
 
     require(weakTypeOf[T].typeSymbol.asClass.isCaseClass)
@@ -45,18 +50,31 @@ object Macros {
 
       val paramValue = c.Expr[Any](Apply(
         Select(
-          Ident(newTermName("json")),
-          newTermName("$accessInnerJsonMap")
+          Ident(newTermName("data")),
+          newTermName("$accessInnerMap")
         ),
         List(Literal(Constant(p.name.toString)))
       ))
 
-      val parserValue = c.Expr[JsonParser[_]](Select(
-        Ident(newTermName("json")),
-        newTermName("parser")
+      val representationValue = c.Expr[JsonRepresentation[_]](Select(
+        Ident(newTermName("data")),
+        newTermName("representation")
       ))
 
-      val newArray = reify(new Json(Array(paramValue.splice))(parserValue.splice))
+      val newArray = reify(Array(paramValue.splice))
+      
+      val newDataArray = Apply(
+        Apply(
+          Select(
+            New(
+              TypeTree(weakTypeOf[Data])
+            ),
+            nme.CONSTRUCTOR
+          ),
+          List(newArray.tree)
+        ),
+        List(representationValue.tree)
+      )
 
       Apply(
         Select(
@@ -65,12 +83,11 @@ object Macros {
           ).tree,
           newTermName("construct")
         ),
-        List(newArray.tree)
+        List(newDataArray)
       )
     }
 
-
-    val construction = c.Expr(
+    val construction = c.Expr[T](
       Apply(
         Select(
           New(
@@ -80,20 +97,12 @@ object Macros {
         ),
         params.to[List]
       )
-      /*New(
-        weakTypeOf[T].typeSymbol,
-        params.to[List]: _*
-      )*/
     )
 
-    reify(new Extractor[T] {
-      def construct(json: Json): T = construction.splice
-      // Added this line due to apparent compiler bug with abstract method error
-      //override def rawConstruct(any: Any, parser: JsonParser[_]): T = construct(new Json(Array(any))(parser))
-    })
+    reify(new Extractor[T] { def construct(data: Data): T = construction.splice })
   }
 
-  def serializerMacro[T: c.WeakTypeTag](c: Context)(parser: c.Expr[JsonParser[_]]): c.Expr[Serializer[T]] = {
+  def serializerMacro[T: c.WeakTypeTag](c: Context)(representation: c.Expr[JsonRepresentation[_]]): c.Expr[Serializer[T]] = {
     import c.universe._
 
     val tpe = weakTypeOf[T].typeSymbol.asClass
@@ -173,6 +182,6 @@ object Macros {
       )
     } else throw new Exception()
 
-    reify(new Serializer[T] { def serialize(t: T): Any = parser.splice.fromObject(construction.splice) })
+    reify(new Serializer[T] { def serialize(t: T): Any = representation.splice.fromObject(construction.splice) })
   }
 }

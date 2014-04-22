@@ -36,7 +36,7 @@ object DataTypes {
   case object Undefined extends DataType("undefined")
 }
 
-trait DataParser[-Source] {
+trait DataRepresentation[-Source] {
   def parse(s: Source): Option[Any]
   
   /** Dereferences the named element within the JSON object. */
@@ -69,15 +69,15 @@ trait DataParser[-Source] {
 
 }
 
-trait MutableDataParser[-Source] extends DataParser[Source] {
+trait MutableDataRepresentation[-Source] extends DataRepresentation[Source] {
   def setObjectValue(obj: Any, name: String, value: Any): Any
   def setArrayValue(array: Any, index: Int, value: Any): Any
   def removeObjectValue(obj: Any, name: String): Any
   def addArrayValue(array: Any, value: Any): Any
 }
 
-/** Represents a JSON parser implementation which is used throughout this library */
-trait JsonParser[-Source] extends DataParser[Source] {
+/** Represents a JSON representation implementation which is used throughout this library */
+trait JsonRepresentation[-Source] extends DataRepresentation[Source] {
 
   /** Extracts a `Boolean` from the parsed JSON. */
   def getBoolean(boolean: Any): Boolean
@@ -119,5 +119,5 @@ trait JsonParser[-Source] extends DataParser[Source] {
   protected def typeTest(pf: PartialFunction[Any, Unit])(v: Any) = pf.isDefinedAt(v)
 }
 
-trait JsonBufferParser[S] extends JsonParser[S] with MutableDataParser[S]
+trait JsonBufferRepresentation[S] extends JsonRepresentation[S] with MutableDataRepresentation[S]
 

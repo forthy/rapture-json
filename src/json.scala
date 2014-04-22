@@ -27,49 +27,49 @@ import scala.collection.mutable.{ListBuffer, HashMap}
 import language.dynamics
 import language.higherKinds
 
-trait JsonDataCompanion[+Type <: JsonDataType[Type, ParserType],
-    ParserType[S] <: JsonParser[S]] extends DataCompanion[Type, ParserType] {
+trait JsonDataCompanion[+Type <: JsonDataType[Type, RepresentationType],
+    RepresentationType[S] <: JsonRepresentation[S]] extends DataCompanion[Type, RepresentationType] {
 
   /** Formats the JSON object for multi-line readability. */
-  def format(json: Option[Any], ln: Int, parser: ParserType[_], pad: String = " ",
+  def format(json: Option[Any], ln: Int, representation: RepresentationType[_], pad: String = " ",
       brk: String = "\n"): String = {
     val indent = pad*ln
     json match {
       case None => "null"
       case Some(j) =>
-        if(parser.isString(j)) {
-          "\""+parser.getString(j).replaceAll("\\\\", "\\\\\\\\").replaceAll("\r",
+        if(representation.isString(j)) {
+          "\""+representation.getString(j).replaceAll("\\\\", "\\\\\\\\").replaceAll("\r",
               "\\\\r").replaceAll("\n", "\\\\n").replaceAll("\"", "\\\\\"")+"\""
-        } else if(parser.isBoolean(j)) {
-          if(parser.getBoolean(j)) "true" else "false"
-        } else if(parser.isNumber(j)) {
-          val n = parser.getDouble(j)
+        } else if(representation.isBoolean(j)) {
+          if(representation.getBoolean(j)) "true" else "false"
+        } else if(representation.isNumber(j)) {
+          val n = representation.getDouble(j)
           if(n == n.floor) n.toInt.toString else n.toString
-        } else if(parser.isArray(j)) {
-          List("[", parser.getArray(j) map { v =>
-            s"${indent}${pad}${format(Some(v), ln + 1, parser, pad, brk)}"
+        } else if(representation.isArray(j)) {
+          List("[", representation.getArray(j) map { v =>
+            s"${indent}${pad}${format(Some(v), ln + 1, representation, pad, brk)}"
           } mkString s",${brk}", s"${indent}]") mkString brk
-        } else if(parser.isObject(j)) {
-          List("{", parser.getKeys(j) map { k =>
-            val inner = try Some(parser.dereferenceObject(j, k)) catch {
+        } else if(representation.isObject(j)) {
+          List("{", representation.getKeys(j) map { k =>
+            val inner = try Some(representation.dereferenceObject(j, k)) catch {
               case e: Exception => None
             }
-            s"""${indent}${pad}"${k}":${pad}${format(inner, ln + 1, parser, pad, brk)}"""
+            s"""${indent}${pad}"${k}":${pad}${format(inner, ln + 1, representation, pad, brk)}"""
           } mkString s",${brk}", s"${indent}}") mkString brk
-        } else if(parser.isNull(j)) "null"
+        } else if(representation.isNull(j)) "null"
         else if(j == DataCompanion.Empty) "empty"
         else "undefined"
     }
   }
 }
 
-trait JsonDataType[+T <: JsonDataType[T, ParserType], ParserType[S] <: JsonParser[S]]
-    extends DataType[T, ParserType] {
+trait JsonDataType[+T <: JsonDataType[T, RepresentationType], RepresentationType[S] <: JsonRepresentation[S]]
+    extends DataType[T, RepresentationType] {
   
   /** Assumes the Json object is wrapping a `T`, and casts (intelligently) to that type. */
   def as[T](implicit ext: Extractor[T], eh: ExceptionHandler): eh.![T, DataGetException] =
     eh wrap {
-      try ext.construct(new Json(Array(normalize))(parser)) catch {
+      try ext.construct(new Json(Array(normalize))(representation)) catch {
         case TypeMismatchException(f, e, _) => throw TypeMismatchException(f, e, path)
         case e: MissingValueException => throw e
       }
@@ -80,8 +80,8 @@ trait JsonDataType[+T <: JsonDataType[T, ParserType], ParserType[S] <: JsonParse
       case (j, Vector()) => j: Any
       case (j, t :+ Right(k)) =>
         fn(({
-          if(parser.isObject(j)) {
-            try parser.dereferenceObject(j, k) catch {
+          if(representation.isObject(j)) {
+            try representation.dereferenceObject(j, k) catch {
               case TypeMismatchException(f, e, _) =>
                 TypeMismatchException(f, e, path.drop(t.length))
               case e: Exception =>
@@ -89,14 +89,14 @@ trait JsonDataType[+T <: JsonDataType[T, ParserType], ParserType[S] <: JsonParse
                 else throw MissingValueException(path.drop(t.length))
             }
           } else {
-            throw TypeMismatchException(parser.getType(j), DataTypes.Object,
+            throw TypeMismatchException(representation.getType(j), DataTypes.Object,
               path.drop(t.length))
           }
         }, t))
       case (j, t :+ Left(i)) =>
         fn((
-          if(parser.isArray(j)) {
-            try parser.dereferenceArray(j, i) catch {
+          if(representation.isArray(j)) {
+            try representation.dereferenceArray(j, i) catch {
               case TypeMismatchException(f, e, _) =>
                 TypeMismatchException(f, e, path.drop(t.length))
               case e: Exception =>
@@ -104,7 +104,7 @@ trait JsonDataType[+T <: JsonDataType[T, ParserType], ParserType[S] <: JsonParse
                 else throw MissingValueException(path.drop(t.length))
             }
           } else {
-            throw TypeMismatchException(parser.getType(j), DataTypes.Array, path.drop(t.length))
+            throw TypeMismatchException(representation.getType(j), DataTypes.Array, path.drop(t.length))
           }
         , t))
     } } (root(0) -> path)
@@ -112,42 +112,42 @@ trait JsonDataType[+T <: JsonDataType[T, ParserType], ParserType[S] <: JsonParse
 
 /** Companion object to the `Json` type, providing factory and extractor methods, and a JSON
   * pretty printer. */
-object Json extends JsonDataCompanion[Json, JsonParser] {
-  def constructRaw(any: Array[Any], path: Vector[Either[Int, String]])(implicit parser: JsonParser[_]): Json =
+object Json extends JsonDataCompanion[Json, JsonRepresentation] {
+  def constructRaw(any: Array[Any], path: Vector[Either[Int, String]])(implicit representation: JsonRepresentation[_]): Json =
     new Json(any, path)
   
-  def convert(json: Json)(implicit parser: JsonParser[_]): Json = {
-    val oldParser = json.parser
+  def convert(json: Json)(implicit representation: JsonRepresentation[_]): Json = {
+    val oldRepresentation = json.representation
     
     def convert(j: Any): Any =
-      if(oldParser.isString(j)) parser.fromString(oldParser.getString(j))
-      else if(oldParser.isBoolean(j)) parser.fromBoolean(oldParser.getBoolean(j))
-      else if(oldParser.isNumber(j)) parser.fromDouble(oldParser.getDouble(j))
-      else if(oldParser.isArray(j)) parser.fromArray(oldParser.getArray(j).map(convert))
-      else if(oldParser.isObject(j)) parser.fromObject(oldParser.getObject(j).mapValues(convert))
+      if(oldRepresentation.isString(j)) representation.fromString(oldRepresentation.getString(j))
+      else if(oldRepresentation.isBoolean(j)) representation.fromBoolean(oldRepresentation.getBoolean(j))
+      else if(oldRepresentation.isNumber(j)) representation.fromDouble(oldRepresentation.getDouble(j))
+      else if(oldRepresentation.isArray(j)) representation.fromArray(oldRepresentation.getArray(j).map(convert))
+      else if(oldRepresentation.isObject(j)) representation.fromObject(oldRepresentation.getObject(j).mapValues(convert))
       else null
 
-    new Json(Array(convert(json.root(0))), json.path)(parser)
+    new Json(Array(convert(json.root(0))), json.path)(representation)
   }
 
 }
 
 /** Represents some parsed JSON. */
 class Json(val root: Array[Any], val path: Vector[Either[Int, String]] = Vector())(implicit
-    val parser: JsonParser[_]) extends JsonDataType[Json, JsonParser] {
+    val representation: JsonRepresentation[_]) extends JsonDataType[Json, JsonRepresentation] {
 
   val companion = Json
-  def $accessInnerJsonMap(k: String): Any = parser.dereferenceObject(root(0), k)
+  def $accessInnerMap(k: String): Any = representation.dereferenceObject(root(0), k)
 
 }
 
-object JsonBuffer extends JsonDataCompanion[JsonBuffer, JsonBufferParser] {
-  def constructRaw(any: Array[Any], path: Vector[Either[Int, String]])(implicit parser:
-      JsonBufferParser[_]): JsonBuffer = new JsonBuffer(any, path)
+object JsonBuffer extends JsonDataCompanion[JsonBuffer, JsonBufferRepresentation] {
+  def constructRaw(any: Array[Any], path: Vector[Either[Int, String]])(implicit representation:
+      JsonBufferRepresentation[_]): JsonBuffer = new JsonBuffer(any, path)
   
 }
 
-class JsonBuffer(protected val root: Array[Any], val path: Vector[Either[Int, String]] = Vector())(implicit val parser: JsonBufferParser[_]) extends JsonDataType[JsonBuffer, JsonBufferParser] with MutableDataType[JsonBuffer, JsonBufferParser] {
+class JsonBuffer(protected val root: Array[Any], val path: Vector[Either[Int, String]] = Vector())(implicit val representation: JsonBufferRepresentation[_]) extends JsonDataType[JsonBuffer, JsonBufferRepresentation] with MutableDataType[JsonBuffer, JsonBufferRepresentation] {
  
   val companion = JsonBuffer
   
