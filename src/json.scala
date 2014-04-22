@@ -77,11 +77,15 @@ trait JsonDataCompanion[+Type <: JsonDataType[Type, ParserType],
           val n = parser.getDouble(j)
           if(n == n.floor) n.toInt.toString else n.toString
         } else if(parser.isArray(j)) {
-          List("[", parser.getArray(j) map { v =>
+          val array = parser.getArray(j)
+          if(array.isEmpty) "[]"
+          else List("[", array map { v =>
             s"${indent}${pad}${format(Some(v), ln + 1, parser, pad, brk)}"
           } mkString s",${brk}", s"${indent}]") mkString brk
         } else if(parser.isObject(j)) {
-          List("{", parser.getKeys(j) map { k =>
+          val keys = parser.getKeys(j)
+          if(keys.isEmpty) "{}"
+          else List("{", keys map { k =>
             val inner = try Some(parser.dereferenceObject(j, k)) catch {
               case e: Exception => None
             }
