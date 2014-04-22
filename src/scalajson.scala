@@ -95,6 +95,7 @@ object ScalaJsonRepresentation extends JsonBufferRepresentation[String] {
   def isObject(any: Any): Boolean = typeTest { case _: Map[_, _] => () } (any)
   def isArray(any: Any): Boolean = typeTest { case _: List[_] => () } (any)
   def isNull(any: Any): Boolean = any == null
+  def nullValue: Any = null
   
   def parse(s: String): Option[Any] = JSON.parseFull(s)
 }

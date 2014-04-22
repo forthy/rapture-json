@@ -106,6 +106,9 @@ trait JsonRepresentation[-Source] extends DataRepresentation[Source] {
   /** Tests if the element represents a `null` */
   def isNull(any: Any): Boolean
 
+  /** The value used to represent a `null` */
+  def nullValue: Any
+
   /** Returns the DataType instance for the particular type. */
   def getType(any: Any): DataTypes.DataType =
     if(isBoolean(any)) DataTypes.Boolean

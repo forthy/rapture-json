@@ -120,12 +120,17 @@ object Json extends JsonDataCompanion[Json, JsonRepresentation] {
     val oldRepresentation = json.representation
     
     def convert(j: Any): Any =
-      if(oldRepresentation.isString(j)) representation.fromString(oldRepresentation.getString(j))
-      else if(oldRepresentation.isBoolean(j)) representation.fromBoolean(oldRepresentation.getBoolean(j))
-      else if(oldRepresentation.isNumber(j)) representation.fromDouble(oldRepresentation.getDouble(j))
-      else if(oldRepresentation.isArray(j)) representation.fromArray(oldRepresentation.getArray(j).map(convert))
-      else if(oldRepresentation.isObject(j)) representation.fromObject(oldRepresentation.getObject(j).mapValues(convert))
-      else null
+      if(oldRepresentation.isString(j))
+        representation.fromString(oldRepresentation.getString(j))
+      else if(oldRepresentation.isBoolean(j))
+        representation.fromBoolean(oldRepresentation.getBoolean(j))
+      else if(oldRepresentation.isNumber(j))
+        representation.fromDouble(oldRepresentation.getDouble(j))
+      else if(oldRepresentation.isArray(j))
+        representation.fromArray(oldRepresentation.getArray(j).map(convert))
+      else if(oldRepresentation.isObject(j))
+        representation.fromObject(oldRepresentation.getObject(j).mapValues(convert))
+      else representation.nullValue
 
     new Json(Array(convert(json.root(0))), json.path)(representation)
   }
