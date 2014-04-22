@@ -25,15 +25,15 @@ import rapture.core._
 import scala.collection.mutable.{ListBuffer, HashMap}
 import scala.collection.JavaConverters
 
-object JsonTypes {
-  sealed class JsonType(val name: String)
-  case object Number extends JsonType("number")
-  case object String extends JsonType("string")
-  case object Null extends JsonType("null")
-  case object Boolean extends JsonType("boolean")
-  case object Array extends JsonType("array")
-  case object Object extends JsonType("object")
-  case object Undefined extends JsonType("undefined")
+object DataTypes {
+  sealed class DataType(val name: String)
+  case object Number extends DataType("number")
+  case object String extends DataType("string")
+  case object Null extends DataType("null")
+  case object Boolean extends DataType("boolean")
+  case object Array extends DataType("array")
+  case object Object extends DataType("object")
+  case object Undefined extends DataType("undefined")
 }
 
 trait DataParser[-Source] {
@@ -106,15 +106,15 @@ trait JsonParser[-Source] extends DataParser[Source] {
   /** Tests if the element represents a `null` */
   def isNull(any: Any): Boolean
 
-  /** Returns the JsonType instance for the particular type. */
-  def getType(any: Any): JsonTypes.JsonType =
-    if(isBoolean(any)) JsonTypes.Boolean
-    else if(isString(any)) JsonTypes.String
-    else if(isNumber(any)) JsonTypes.Number
-    else if(isObject(any)) JsonTypes.Object
-    else if(isArray(any)) JsonTypes.Array
-    else if(isNull(any)) JsonTypes.Null
-    else JsonTypes.Undefined
+  /** Returns the DataType instance for the particular type. */
+  def getType(any: Any): DataTypes.DataType =
+    if(isBoolean(any)) DataTypes.Boolean
+    else if(isString(any)) DataTypes.String
+    else if(isNumber(any)) DataTypes.Number
+    else if(isObject(any)) DataTypes.Object
+    else if(isArray(any)) DataTypes.Array
+    else if(isNull(any)) DataTypes.Null
+    else DataTypes.Undefined
 
   protected def typeTest(pf: PartialFunction[Any, Unit])(v: Any) = pf.isDefinedAt(v)
 }

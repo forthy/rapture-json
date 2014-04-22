@@ -30,8 +30,8 @@ object `package` {
   implicit def extractorMacro[T <: Product]: Extractor[T] =
     macro Macros.extractorMacro[T]
   
-  implicit def jsonizerMacro[T <: Product](implicit parser: JsonParser[_]): Jsonizer[T] =
-    macro Macros.jsonizerMacro[T]
+  implicit def serializerMacro[T <: Product](implicit parser: JsonParser[_]): Serializer[T] =
+    macro Macros.serializerMacro[T]
   
   implicit def jsonStrings(sc: StringContext)(implicit parser: JsonParser[String]) =
     new JsonStrings(sc)

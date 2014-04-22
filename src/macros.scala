@@ -93,11 +93,11 @@ object Macros {
     })
   }
 
-  def jsonizerMacro[T: c.WeakTypeTag](c: Context)(parser: c.Expr[JsonParser[_]]): c.Expr[Jsonizer[T]] = {
+  def serializerMacro[T: c.WeakTypeTag](c: Context)(parser: c.Expr[JsonParser[_]]): c.Expr[Serializer[T]] = {
     import c.universe._
 
     val tpe = weakTypeOf[T].typeSymbol.asClass
-    val jsonizer = typeOf[Jsonizer[_]].typeSymbol.asType.toTypeConstructor
+    val serializer = typeOf[Serializer[_]].typeSymbol.asType.toTypeConstructor
 
     val construction = if(tpe.isCaseClass) {
 
@@ -120,8 +120,8 @@ object Macros {
           List(
             Apply(
               Select(
-                c.inferImplicitValue(appliedType(jsonizer, List(p.returnType)), false, false),
-                newTermName("jsonize")
+                c.inferImplicitValue(appliedType(serializer, List(p.returnType)), false, false),
+                newTermName("serialize")
               ),
               List(
                 Select(
@@ -162,8 +162,8 @@ object Macros {
               EmptyTree,
               Apply(
                 Select(
-                  c.inferImplicitValue(appliedType(jsonizer, List(sc.asType.toType)), false, false),
-                  newTermName("jsonize")
+                  c.inferImplicitValue(appliedType(serializer, List(sc.asType.toType)), false, false),
+                  newTermName("serialize")
                 ),
                 List(Ident(newTermName("v")))
               )
@@ -173,112 +173,6 @@ object Macros {
       )
     } else throw new Exception()
 
-    reify(new Jsonizer[T] { def jsonize(t: T): Any = parser.splice.fromObject(construction.splice) })
+    reify(new Serializer[T] { def serialize(t: T): Any = parser.splice.fromObject(construction.splice) })
   }
-}
-
-object Extractor {
-
-  implicit val jsonExtractor: Extractor[Json] = BasicExtractor[Json](identity)
-  
-  implicit val stringExtractor: Extractor[String] = BasicExtractor[String](x =>
-      x.parser.getString(x.root(0)))
-  
-  implicit val doubleExtractor: Extractor[Double] = BasicExtractor[Double](x =>
-      x.parser.getDouble(x.root(0)))
-  
-  implicit val floatExtractor: Extractor[Float] = BasicExtractor[Float](x =>
-      x.parser.getDouble(x.root(0)).toFloat)
-
-  implicit val shortExtractor: Extractor[Short] = BasicExtractor[Short](x =>
-      x.parser.getDouble(x.root(0)).toShort)
-
-  implicit val intExtractor: Extractor[Int] = BasicExtractor[Int](x =>
-      x.parser.getDouble(x.root(0)).toInt)
-
-  implicit val longExtractor: Extractor[Long] = BasicExtractor[Long](x =>
-      x.parser.getDouble(x.root(0)).toLong)
-
-  implicit val byteExtractor: Extractor[Byte] = BasicExtractor[Byte](x =>
-      x.parser.getDouble(x.root(0)).toInt.toByte)
-
-  implicit val booleanExtractor: Extractor[Boolean] = BasicExtractor[Boolean](x =>
-      x.parser.getBoolean(x.root(0)))
-
-  implicit val anyExtractor: Extractor[Any] = BasicExtractor[Any](_.root(0))
-  
-  implicit def genSeqExtractor[T, Coll[_]](implicit cbf:
-      scala.collection.generic.CanBuildFrom[Nothing, T, Coll[T]], ext: Extractor[T]):
-      Extractor[Coll[T]] =
-    BasicExtractor[Coll[T]]({ x =>
-      x.parser.getArray(x.root(0)).to[List].map(v => ext.construct(new Json(Array(v))(x.parser))).to[Coll]
-    })
-
-  implicit def optionExtractor[T](implicit ext: Extractor[T]): Extractor[Option[T]] =
-    new BasicExtractor[Option[T]](x =>
-      if(x.root(0) == null) None else Some(x.root(0): Any) map (v => ext.construct(new Json(Array(v))(x.parser)))
-    ) { override def errorToNull = true }
-  
-  implicit def mapExtractor[T](implicit ext: Extractor[T]): Extractor[Map[String, T]] =
-    BasicExtractor[Map[String, T]](x =>
-      x.parser.getObject(x.root(0)) mapValues (v => ext.construct(new Json(Array(v))(x.parser)))
-    )
-}
-
-@implicitNotFound("cannot extract type ${T} from JSON.")
-trait Extractor[T] {
-  def construct(any: Json): T
-  //def rawConstruct(any: Any, parser: JsonParser[_]): T = construct(new Json(Array(any))(parser))
-  def errorToNull = false
-}
-
-
-object Jsonizer {
-
-  implicit def identityJsonizer(implicit parser: JsonParser[_]): Jsonizer[Json] =
-    new Jsonizer[Json] { def jsonize(j: Json) = j.root(0) }
-  
-  implicit def intJsonizer(implicit parser: JsonParser[_]): Jsonizer[Int] =
-    new Jsonizer[Int] { def jsonize(i: Int) = parser.fromDouble(i.toDouble) }
-  
-  implicit def booleanJsonizer(implicit parser: JsonParser[_]): Jsonizer[Boolean] =
-    new Jsonizer[Boolean] { def jsonize(b: Boolean) = parser.fromBoolean(b) }
-  
-  implicit def stringJsonizer(implicit parser: JsonParser[_]): Jsonizer[String] =
-    new Jsonizer[String] { def jsonize(s: String) = parser.fromString(s) }
-  
-  implicit def floatJsonizer(implicit parser: JsonParser[_]): Jsonizer[Float] =
-    new Jsonizer[Float] { def jsonize(f: Float) = parser.fromDouble(f.toDouble) }
-  
-  implicit def doubleJsonizer(implicit parser: JsonParser[_]): Jsonizer[Double] =
-    new Jsonizer[Double] { def jsonize(d: Double) = parser.fromDouble(d) }
-  
-  implicit def longJsonizer(implicit parser: JsonParser[_]): Jsonizer[Long] =
-    new Jsonizer[Long] { def jsonize(l: Long) = parser.fromDouble(l.toDouble) }
-  
-  implicit def shortJsonizer(implicit parser: JsonParser[_]): Jsonizer[Short] =
-    new Jsonizer[Short] { def jsonize(s: Short) = parser.fromDouble(s.toDouble) }
-  
-  implicit def byteJsonizer(implicit parser: JsonParser[_]): Jsonizer[Byte] =
-    new Jsonizer[Byte] { def jsonize(b: Byte) = parser.fromDouble(b.toDouble) }
-  
-  implicit def listJsonizer[T: Jsonizer](implicit parser: JsonParser[_]): Jsonizer[List[T]] =
-    new Jsonizer[List[T]] { def jsonize(xs: List[T]) = parser.fromArray(xs.map(implicitly[Jsonizer[T]].jsonize)) }
-  
-  implicit def genSeqJsonizer[T: Jsonizer](implicit parser: JsonParser[_]): Jsonizer[Traversable[T]] =
-    new Jsonizer[Traversable[T]] {
-      def jsonize(xs: Traversable[T]) =
-        parser.fromArray(xs.map(implicitly[Jsonizer[T]].jsonize).to[List])
-    }
-  
-  implicit def mapJsonizer[T: Jsonizer](implicit parser: JsonParser[_]): Jsonizer[Map[String, T]] =
-    new Jsonizer[Map[String, T]] {
-      def jsonize(m: Map[String, T]) = parser.fromObject(m.mapValues(implicitly[Jsonizer[T]].jsonize))
-    }
-  
-}
-
-@implicitNotFound("cannot serialize type ${T} to JSON.")
-trait Jsonizer[T] {
-  def jsonize(t: T): Any
 }

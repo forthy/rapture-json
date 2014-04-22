@@ -29,12 +29,12 @@ object DataGetException {
 
 sealed class DataGetException(msg: String) extends RuntimeException(msg)
 
-case class TypeMismatchException(foundType: JsonTypes.JsonType,
-    expectedType: JsonTypes.JsonType, path: Vector[Either[Int, String]]) extends
+case class TypeMismatchException(foundType: DataTypes.DataType,
+    expectedType: DataTypes.DataType, path: Vector[Either[Int, String]]) extends
     DataGetException(s"Type mismatch: Expected ${expectedType.name} but found "+
-    s"${foundType.name} at json${DataGetException.stringifyPath(path)}")
+    s"${foundType.name} at <value>${DataGetException.stringifyPath(path)}")
 
 case class MissingValueException(path: Vector[Either[Int, String]])
-  extends DataGetException(s"Missing value: json${DataGetException.stringifyPath(path)}")
+  extends DataGetException(s"Missing value: <value>${DataGetException.stringifyPath(path)}")
 
 
