@@ -30,39 +30,43 @@ import language.experimental.macros
 import language.higherKinds
 
 @implicitNotFound("cannot extract type ${T} from JSON.")
-trait Extractor[T] { def construct(any: Json): T }
+trait Extractor[T, -D] { def construct(any: D): T }
+
+case class BasicExtractor[T, -D](val cast: D => T) extends Extractor[T, D] {
+  def construct(d: D) = cast(d)
+}
 
 object Extractor {
 
-  implicit val jsonExtractor: Extractor[Json] = BasicExtractor[Json](identity)
+  implicit def identityExtractor[D]: Extractor[D, D] = BasicExtractor[D, D](identity)
 
-  implicit val stringExtractor: Extractor[String] = BasicExtractor[String](x =>
+  implicit val stringExtractor: Extractor[String, Json] = BasicExtractor[String, Json](x =>
       x.representation.getString(x.root(0)))
 
-  implicit val doubleExtractor: Extractor[Double] = BasicExtractor[Double](x =>
+  implicit val doubleExtractor: Extractor[Double, Json] = BasicExtractor[Double, Json](x =>
       x.representation.getDouble(x.root(0)))
 
-  implicit val floatExtractor: Extractor[Float] = BasicExtractor[Float](x =>
+  implicit val floatExtractor: Extractor[Float, Json] = BasicExtractor[Float, Json](x =>
       x.representation.getDouble(x.root(0)).toFloat)
 
-  implicit val shortExtractor: Extractor[Short] = BasicExtractor[Short](x =>
+  implicit val shortExtractor: Extractor[Short, Json] = BasicExtractor[Short, Json](x =>
       x.representation.getDouble(x.root(0)).toShort)
 
-  implicit val intExtractor: Extractor[Int] = BasicExtractor[Int](x =>
+  implicit val intExtractor: Extractor[Int, Json] = BasicExtractor[Int, Json](x =>
       x.representation.getDouble(x.root(0)).toInt)
 
-  implicit val longExtractor: Extractor[Long] = BasicExtractor[Long](x =>
+  implicit val longExtractor: Extractor[Long, Json] = BasicExtractor[Long, Json](x =>
       x.representation.getDouble(x.root(0)).toLong)
 
-  implicit val byteExtractor: Extractor[Byte] = BasicExtractor[Byte](x =>
+  implicit val byteExtractor: Extractor[Byte, Json] = BasicExtractor[Byte, Json](x =>
       x.representation.getDouble(x.root(0)).toInt.toByte)
 
-  implicit val booleanExtractor: Extractor[Boolean] = BasicExtractor[Boolean](x =>
+  implicit val booleanExtractor: Extractor[Boolean, Json] = BasicExtractor[Boolean, Json](x =>
       x.representation.getBoolean(x.root(0)))
 
-  implicit val anyExtractor: Extractor[Any] = BasicExtractor[Any](_.root(0))
+  implicit val anyExtractor: Extractor[Any, Json] = BasicExtractor[Any, Json](_.root(0))
 
-  implicit def genSeqExtractor[T, Coll[_]](implicit cbf:
+  /*implicit def genSeqExtractor[T, Coll[_]](implicit cbf:
       scala.collection.generic.CanBuildFrom[Nothing, T, Coll[T]], ext: Extractor[T]):
       Extractor[Coll[T]] =
     BasicExtractor[Coll[T]]({ x =>
@@ -77,5 +81,5 @@ object Extractor {
   implicit def mapExtractor[T](implicit ext: Extractor[T]): Extractor[Map[String, T]] =
     BasicExtractor[Map[String, T]](x =>
       x.representation.getObject(x.root(0)) mapValues (v => ext.construct(new Json(Array(v))(x.representation)))
-    )
+    )*/
 }

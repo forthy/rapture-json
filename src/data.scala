@@ -90,7 +90,7 @@ trait DataType[+T <: DataType[T, RepresentationType], RepresentationType[S] <: D
     case _ => false
   }
 
-  def as[T](implicit ext: Extractor[T], eh: ExceptionHandler): eh.![T, DataGetException]
+  def as[S](implicit ext: Extractor[S, T], eh: ExceptionHandler): eh.![S, DataGetException]
 
   override def hashCode = root(0).hashCode & "json".hashCode
 

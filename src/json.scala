@@ -65,16 +65,18 @@ trait JsonDataCompanion[+Type <: JsonDataType[Type, RepresentationType],
 
 trait JsonDataType[+T <: JsonDataType[T, RepresentationType], RepresentationType[S] <: JsonRepresentation[S]]
     extends DataType[T, RepresentationType] {
-  
+ 
+  def wrap(any: Any): T
+
   /** Assumes the Json object is wrapping a `T`, and casts (intelligently) to that type. */
-  def as[T](implicit ext: Extractor[T], eh: ExceptionHandler): eh.![T, DataGetException] =
+  def as[S](implicit ext: Extractor[S, T], eh: ExceptionHandler): eh.![S, DataGetException] =
     eh wrap {
-      try ext.construct(new Json(Array(normalize))(representation)) catch {
+      try ext.construct(wrap(normalize)) catch {
         case TypeMismatchException(f, e, _) => throw TypeMismatchException(f, e, path)
         case e: MissingValueException => throw e
       }
     }
-  
+ 
   protected def doNormalize(orEmpty: Boolean): Any =
     yCombinator[(Any, Vector[Either[Int, String]]), Any] { fn => _ match {
       case (j, Vector()) => j: Any
@@ -141,6 +143,7 @@ object Json extends JsonDataCompanion[Json, JsonRepresentation] {
 class Json(val root: Array[Any], val path: Vector[Either[Int, String]] = Vector())(implicit
     val representation: JsonRepresentation[_]) extends JsonDataType[Json, JsonRepresentation] {
 
+  def wrap(any: Any): Json = new Json(Array(any))
   val companion = Json
   def $accessInnerMap(k: String): Any = representation.dereferenceObject(root(0), k)
 
@@ -154,22 +157,18 @@ object JsonBuffer extends JsonDataCompanion[JsonBuffer, JsonBufferRepresentation
 
 class JsonBuffer(protected val root: Array[Any], val path: Vector[Either[Int, String]] = Vector())(implicit val representation: JsonBufferRepresentation[_]) extends JsonDataType[JsonBuffer, JsonBufferRepresentation] with MutableDataType[JsonBuffer, JsonBufferRepresentation] {
  
+  def wrap(any: Any): JsonBuffer = new JsonBuffer(Array(any))
   val companion = JsonBuffer
-  
   def setRoot(value: Any) = root(0) = value
 }
 
-class AnyExtractor[T](cast: Json => T) extends BasicExtractor[T](x => cast(x))
+//class AnyExtractor[T](cast: Json => T) extends BasicExtractor[T](x => cast(x))
 
-case class BasicExtractor[T](val cast: Json => T) extends Extractor[T] {
-  def construct(js: Json) = cast(js)
-}
-
-case class CascadeExtractor[T](casts: (Json => T)*) extends Extractor[T] {
+/*case class CascadeExtractor[T](casts: (Json => T)*) extends Extractor[T] {
   def construct(js: Json) = {
     (casts.foldLeft(None: Option[T]) { case (v, next) =>
       v orElse { try Some(next(js)) catch { case e: Exception => None } }
     }).get
   }
-}
+}*/
 

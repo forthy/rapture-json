@@ -29,18 +29,18 @@ import language.experimental.macros
 import language.higherKinds
 
 object JsonMacros {
-  def extractorMacro[T: c.WeakTypeTag](c: Context): c.Expr[Extractor[T]] =
+  def extractorMacro[T: c.WeakTypeTag](c: Context): c.Expr[Extractor[T, Json]] =
     Macros.extractorMacro[T, Json](c)
 }
 
 object Macros {
  
-  def extractorMacro[T: c.WeakTypeTag, Data: c.WeakTypeTag](c: Context): c.Expr[Extractor[T]] = {
+  def extractorMacro[T: c.WeakTypeTag, Data: c.WeakTypeTag](c: Context): c.Expr[Extractor[T, Data]] = {
     import c.universe._
 
     require(weakTypeOf[T].typeSymbol.asClass.isCaseClass)
 
-    val extractor = typeOf[Extractor[_]].typeSymbol.asType.toTypeConstructor
+    val extractor = typeOf[Extractor[_, _]].typeSymbol.asType.toTypeConstructor
 
     // FIXME: This will perform badly for large objects, as the map extraction is applied to
     // all elements once for every element
@@ -78,8 +78,8 @@ object Macros {
 
       Apply(
         Select(
-          c.Expr[Extractor[_]](
-            c.inferImplicitValue(appliedType(extractor, List(p.returnType)), false, false)
+          c.Expr[Extractor[_, _]](
+            c.inferImplicitValue(appliedType(extractor, List(p.returnType, weakTypeOf[Data])), false, false)
           ).tree,
           newTermName("construct")
         ),
@@ -99,7 +99,7 @@ object Macros {
       )
     )
 
-    reify(new Extractor[T] { def construct(data: Data): T = construction.splice })
+    reify(new Extractor[T, Data] { def construct(data: Data): T = construction.splice })
   }
 
   def serializerMacro[T: c.WeakTypeTag](c: Context)(representation: c.Expr[JsonRepresentation[_]]): c.Expr[Serializer[T]] = {

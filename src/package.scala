@@ -27,7 +27,7 @@ import language.experimental.macros
 
 object `package` {
 
-  implicit def extractorMacro[T <: Product]: Extractor[T] =
+  implicit def extractorMacro[T <: Product]: Extractor[T, Json] =
     macro JsonMacros.extractorMacro[T]
   
   implicit def serializerMacro[T <: Product](implicit representation: JsonRepresentation[_]): Serializer[T] =
