@@ -13,7 +13,7 @@ object project extends ProjectSettings {
   def imports = Seq(
     "rapture.core._",
     "rapture.json._",
-    "jsonParsers.scalaJson._",
+    "jsonBackends.scalaJson._",
     "strategy.throwExceptions"
   )
 }

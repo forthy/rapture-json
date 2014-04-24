@@ -21,6 +21,7 @@
 package rapture.json
 
 import rapture.core._
+import rapture.data._
 
 import scala.collection.mutable.{ListBuffer, HashMap}
 
@@ -28,10 +29,10 @@ import language.dynamics
 import language.higherKinds
 
 trait JsonDataCompanion[+Type <: JsonDataType[Type, RepresentationType],
-    RepresentationType[S] <: JsonRepresentation[S]] extends DataCompanion[Type, RepresentationType] {
+    RepresentationType <: JsonRepresentation] extends DataCompanion[Type, RepresentationType] {
 
   /** Formats the JSON object for multi-line readability. */
-  def format(json: Option[Any], ln: Int, representation: RepresentationType[_], pad: String = " ",
+  def format(json: Option[Any], ln: Int, representation: RepresentationType, pad: String = " ",
       brk: String = "\n"): String = {
     val indent = pad*ln
     json match {
@@ -63,7 +64,7 @@ trait JsonDataCompanion[+Type <: JsonDataType[Type, RepresentationType],
   }
 }
 
-trait JsonDataType[+T <: JsonDataType[T, RepresentationType], RepresentationType[S] <: JsonRepresentation[S]]
+trait JsonDataType[+T <: JsonDataType[T, RepresentationType], RepresentationType <: JsonRepresentation]
     extends DataType[T, RepresentationType] {
  
   def wrap(any: Any): T
@@ -115,10 +116,10 @@ trait JsonDataType[+T <: JsonDataType[T, RepresentationType], RepresentationType
 /** Companion object to the `Json` type, providing factory and extractor methods, and a JSON
   * pretty printer. */
 object Json extends JsonDataCompanion[Json, JsonRepresentation] {
-  def constructRaw(any: Array[Any], path: Vector[Either[Int, String]])(implicit representation: JsonRepresentation[_]): Json =
+  def constructRaw(any: Array[Any], path: Vector[Either[Int, String]])(implicit representation: JsonRepresentation): Json =
     new Json(any, path)
   
-  def convert(json: Json)(implicit representation: JsonRepresentation[_]): Json = {
+  def convert(json: Json)(implicit representation: JsonRepresentation): Json = {
     val oldRepresentation = json.representation
     
     def convert(j: Any): Any =
@@ -141,7 +142,7 @@ object Json extends JsonDataCompanion[Json, JsonRepresentation] {
 
 /** Represents some parsed JSON. */
 class Json(val root: Array[Any], val path: Vector[Either[Int, String]] = Vector())(implicit
-    val representation: JsonRepresentation[_]) extends JsonDataType[Json, JsonRepresentation] {
+    val representation: JsonRepresentation) extends JsonDataType[Json, JsonRepresentation] {
 
   def wrap(any: Any): Json = new Json(Array(any))
   val companion = Json
@@ -151,11 +152,11 @@ class Json(val root: Array[Any], val path: Vector[Either[Int, String]] = Vector(
 
 object JsonBuffer extends JsonDataCompanion[JsonBuffer, JsonBufferRepresentation] {
   def constructRaw(any: Array[Any], path: Vector[Either[Int, String]])(implicit representation:
-      JsonBufferRepresentation[_]): JsonBuffer = new JsonBuffer(any, path)
+      JsonBufferRepresentation): JsonBuffer = new JsonBuffer(any, path)
   
 }
 
-class JsonBuffer(protected val root: Array[Any], val path: Vector[Either[Int, String]] = Vector())(implicit val representation: JsonBufferRepresentation[_]) extends JsonDataType[JsonBuffer, JsonBufferRepresentation] with MutableDataType[JsonBuffer, JsonBufferRepresentation] {
+class JsonBuffer(protected val root: Array[Any], val path: Vector[Either[Int, String]] = Vector())(implicit val representation: JsonBufferRepresentation) extends JsonDataType[JsonBuffer, JsonBufferRepresentation] with MutableDataType[JsonBuffer, JsonBufferRepresentation] {
  
   def wrap(any: Any): JsonBuffer = new JsonBuffer(Array(any))
   val companion = JsonBuffer

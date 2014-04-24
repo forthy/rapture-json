@@ -20,21 +20,25 @@
 \**********************************************************************************************/
 package rapture.json
 
-object DataGetException {
-  def stringifyPath(path: Vector[Either[Int, String]]) = path.reverse map {
-    case Left(i) => s"($i)"
-    case Right(s) => s".$s"
-  } mkString ""
+import rapture.core._
+import rapture.data._
+
+import language.higherKinds
+import language.experimental.macros
+
+object `package` extends Serializers with Extractors {
+
+  implicit def jsonExtractorMacro[T <: Product]: Extractor[T, Json] =
+    macro JsonMacros.jsonExtractorMacro[T]
+  
+  implicit def jsonBufferExtractorMacro[T <: Product]: Extractor[T, JsonBuffer] =
+    macro JsonMacros.jsonBufferExtractorMacro[T]
+  
+  implicit def serializerMacro[T <: Product](implicit representation: JsonRepresentation): Serializer[T] =
+    macro Macros.serializerMacro[T]
+  
+  implicit def jsonStrings(sc: StringContext)(implicit parser: Parser[String, JsonRepresentation]) =
+    new JsonStrings(sc)
+
 }
-
-sealed class DataGetException(msg: String) extends RuntimeException(msg)
-
-case class TypeMismatchException(foundType: DataTypes.DataType,
-    expectedType: DataTypes.DataType, path: Vector[Either[Int, String]]) extends
-    DataGetException(s"Type mismatch: Expected ${expectedType.name} but found "+
-    s"${foundType.name} at <value>${DataGetException.stringifyPath(path)}")
-
-case class MissingValueException(path: Vector[Either[Int, String]])
-  extends DataGetException(s"Missing value: <value>${DataGetException.stringifyPath(path)}")
-
 

@@ -18,7 +18,7 @@
 * either express or implied. See the License for the specific language governing permissions   *
 * and limitations under the License.                                                           *
 \**********************************************************************************************/
-package rapture.json
+package rapture.data
 
 import rapture.core._
 
@@ -26,45 +26,46 @@ import scala.collection.mutable.{ListBuffer, HashMap}
 
 import language.dynamics
 import language.higherKinds
+import language.existentials
 
-object DataCompanion {
-  object Empty
-}
+object DataCompanion { object Empty }
 
-trait DataCompanion[+Type <: DataType[Type, RepresentationType], RepresentationType[S] <: DataRepresentation[S]] {
+trait DataCompanion[+Type <: DataType[Type, RepresentationType], -RepresentationType <: DataRepresentation] {
 
-  def empty(implicit representation: RepresentationType[_]) =
+  def empty(implicit representation: RepresentationType) =
     construct(representation.fromObject(Map()), Vector())
 
-  def construct(any: Any, path: Vector[Either[Int, String]])(implicit representation: RepresentationType[_]): Type = constructRaw(Array(any), path)
+  def construct(any: Any, path: Vector[Either[Int, String]])(implicit representation: RepresentationType): Type = constructRaw(Array(any), path)
 
-  def constructRaw(any: Array[Any], path: Vector[Either[Int, String]])(implicit representation: RepresentationType[_]): Type
+  def constructRaw(any: Array[Any], path: Vector[Either[Int, String]])(implicit representation: RepresentationType): Type
 
-  def parse[Source: RepresentationType](s: Source)(implicit eh: ExceptionHandler):
-      eh.![Type, ParseException] = eh.wrap {
-    construct(try implicitly[RepresentationType[Source]].parse(s).get catch {
+  def parse[Source, R <: RepresentationType](s: Source)(implicit eh: ExceptionHandler,
+      parser: Parser[Source, R]): eh.![Type, ParseException] = eh.wrap {
+    construct(try parser.parse(s).get catch {
       case e: NoSuchElementException => throw new ParseException(s.toString)
-    }, Vector())
+    }, Vector())(parser.representation)
   }
 
-  def apply[T: Serializer](t: T)(implicit representation: RepresentationType[_]): Type =
+  def apply[T: Serializer](t: T)(implicit representation: RepresentationType): Type =
     construct(implicitly[Serializer[T]].serialize(t), Vector())
 
-  def unapply(value: Any)(implicit representation: RepresentationType[_]): Option[Type] =
+  def unapply(value: Any)(implicit representation: RepresentationType): Option[Type] =
     Some(construct(value, Vector()))
 
-  def format(value: Option[Any], ln: Int, representation: RepresentationType[_], pad: String,
+  def format(value: Option[Any], ln: Int, representation: RepresentationType, pad: String,
       brk: String): String
 
 }
 
-trait DataType[+T <: DataType[T, RepresentationType], RepresentationType[S] <: DataRepresentation[S]] extends Dynamic {
+trait DataType[+T <: DataType[T, RepresentationType], +RepresentationType <: DataRepresentation] extends Dynamic {
   def companion: DataCompanion[T, RepresentationType]
   protected def root: Array[Any]
-  implicit def representation: RepresentationType[_]
+  implicit def representation: RepresentationType
   def path: Vector[Either[Int, String]]
   protected def doNormalize(orEmpty: Boolean): Any
   def normalize = doNormalize(false)
+
+  def wrap(any: Any): T
 
   /** Navigates the JSON using the `List[String]` parameter, and returns the element at that
     * position in the tree. */
@@ -83,10 +84,8 @@ trait DataType[+T <: DataType[T, RepresentationType], RepresentationType[S] <: D
 
   def applyDynamic(key: String)(i: Int): T = selectDynamic(key).apply(i)
 
-  private type SomeJsonDataType = JsonDataType[_, P] forSome { type P[_] }
-
   override def equals(any: Any) = any match {
-    case any: SomeJsonDataType => root(0) == any.root(0)
+    case any: DataType[_, _] => root(0) == any.root(0)
     case _ => false
   }
 
@@ -107,7 +106,7 @@ trait DataType[+T <: DataType[T, RepresentationType], RepresentationType[S] <: D
 
 }
 
-trait MutableDataType[+T <: DataType[T, RepresentationType], RepresentationType[S] <: MutableDataRepresentation[S]]
+trait MutableDataType[+T <: DataType[T, RepresentationType], RepresentationType <: MutableDataRepresentation]
     extends DataType[T, RepresentationType] {
 
   def setRoot(value: Any): Unit

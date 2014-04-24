@@ -18,7 +18,7 @@
 * either express or implied. See the License for the specific language governing permissions   *
 * and limitations under the License.                                                           *
 \**********************************************************************************************/
-package rapture.json
+package rapture.data
 
 import rapture.core._
 
@@ -27,11 +27,6 @@ import scala.annotation._
 
 import language.experimental.macros
 import language.higherKinds
-
-object JsonMacros {
-  def extractorMacro[T: c.WeakTypeTag](c: Context): c.Expr[Extractor[T, Json]] =
-    Macros.extractorMacro[T, Json](c)
-}
 
 object Macros {
  
@@ -56,11 +51,6 @@ object Macros {
         List(Literal(Constant(p.name.toString)))
       ))
 
-      val representationValue = c.Expr[JsonRepresentation[_]](Select(
-        Ident(newTermName("data")),
-        newTermName("representation")
-      ))
-
       val newArray = reify(Array(paramValue.splice))
       
       val newDataArray = Apply(
@@ -73,7 +63,10 @@ object Macros {
           ),
           List(newArray.tree)
         ),
-        List(representationValue.tree)
+        List(Select(
+          Ident(newTermName("data")),
+          newTermName("representation")
+        ))
       )
 
       Apply(
@@ -102,7 +95,7 @@ object Macros {
     reify(new Extractor[T, Data] { def construct(data: Data): T = construction.splice })
   }
 
-  def serializerMacro[T: c.WeakTypeTag](c: Context)(representation: c.Expr[JsonRepresentation[_]]): c.Expr[Serializer[T]] = {
+  def serializerMacro[T: c.WeakTypeTag](c: Context)(representation: c.Expr[DataRepresentation]): c.Expr[Serializer[T]] = {
     import c.universe._
 
     val tpe = weakTypeOf[T].typeSymbol.asClass

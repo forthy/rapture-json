@@ -20,19 +20,22 @@
 \**********************************************************************************************/
 package rapture.json
 
-package jsonParsers {
+import rapture.data._
+
+import scala.util.parsing.json.JSON
+
+package jsonBackends {
   package scalaJson {
     object `package` {
       implicit val scalaJsonRepresentation = ScalaJsonRepresentation
+      implicit val scalaJsonParser = ScalaJsonParser
     }
   }
 }
 
 /** The default JSON representation implementation */
-object ScalaJsonRepresentation extends JsonBufferRepresentation[String] {
+object ScalaJsonRepresentation extends JsonBufferRepresentation {
   
-  import scala.util.parsing.json._
-
   def getArray(array: Any): List[Any] = array match {
     case list: List[a] => list
     case _ => throw TypeMismatchException(getType(array), DataTypes.Array, Vector())
@@ -96,7 +99,10 @@ object ScalaJsonRepresentation extends JsonBufferRepresentation[String] {
   def isArray(any: Any): Boolean = typeTest { case _: List[_] => () } (any)
   def isNull(any: Any): Boolean = any == null
   def nullValue: Any = null
-  
+}
+
+object ScalaJsonParser extends Parser[String, JsonRepresentation] {
+  val representation = ScalaJsonRepresentation
   def parse(s: String): Option[Any] = JSON.parseFull(s)
 }
 

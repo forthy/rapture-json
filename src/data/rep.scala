@@ -18,7 +18,7 @@
 * either express or implied. See the License for the specific language governing permissions   *
 * and limitations under the License.                                                           *
 \**********************************************************************************************/
-package rapture.json
+package rapture.data
 
 import rapture.core._
 
@@ -36,8 +36,12 @@ object DataTypes {
   case object Undefined extends DataType("undefined")
 }
 
-trait DataRepresentation[-Source] {
+trait Parser[-Source, Representation <: DataRepresentation] {
+  val representation: Representation
   def parse(s: Source): Option[Any]
+}
+
+trait DataRepresentation {
   
   /** Dereferences the named element within the JSON object. */
   def dereferenceObject(obj: Any, element: String): Any =
@@ -69,58 +73,10 @@ trait DataRepresentation[-Source] {
 
 }
 
-trait MutableDataRepresentation[-Source] extends DataRepresentation[Source] {
+trait MutableDataRepresentation extends DataRepresentation {
   def setObjectValue(obj: Any, name: String, value: Any): Any
   def setArrayValue(array: Any, index: Int, value: Any): Any
   def removeObjectValue(obj: Any, name: String): Any
   def addArrayValue(array: Any, value: Any): Any
 }
-
-/** Represents a JSON representation implementation which is used throughout this library */
-trait JsonRepresentation[-Source] extends DataRepresentation[Source] {
-
-  /** Extracts a `Boolean` from the parsed JSON. */
-  def getBoolean(boolean: Any): Boolean
-
-  def fromBoolean(boolean: Boolean): Any
-
-  /** Extracts a `String` from the parsed JSON. */
-  def getString(string: Any): String
-
-  def fromString(string: String): Any
-
-  /** Extracts a `Double` from the parsed JSON. */
-  def getDouble(number: Any): Double
-
-  def fromDouble(number: Double): Any
-
-  /** Tests if the element represents a `Boolean` */
-  def isBoolean(any: Any): Boolean
-  
-  /** Tests if the element represents a `String` */
-  def isString(any: Any): Boolean
-  
-  /** Tests if the element represents a number */
-  def isNumber(any: Any): Boolean
-  
-  /** Tests if the element represents a `null` */
-  def isNull(any: Any): Boolean
-
-  /** The value used to represent a `null` */
-  def nullValue: Any
-
-  /** Returns the DataType instance for the particular type. */
-  def getType(any: Any): DataTypes.DataType =
-    if(isBoolean(any)) DataTypes.Boolean
-    else if(isString(any)) DataTypes.String
-    else if(isNumber(any)) DataTypes.Number
-    else if(isObject(any)) DataTypes.Object
-    else if(isArray(any)) DataTypes.Array
-    else if(isNull(any)) DataTypes.Null
-    else DataTypes.Undefined
-
-  protected def typeTest(pf: PartialFunction[Any, Unit])(v: Any) = pf.isDefinedAt(v)
-}
-
-trait JsonBufferRepresentation[S] extends JsonRepresentation[S] with MutableDataRepresentation[S]
 
