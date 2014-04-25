@@ -30,7 +30,7 @@ import language.existentials
 
 object DataCompanion { object Empty }
 
-trait DataCompanion[+Type <: DataType[Type, RepresentationType], -RepresentationType <: DataRepresentation] {
+trait DataCompanion[+Type <: DataType[Type, DataRepresentation], -RepresentationType <: DataRepresentation] {
 
   def empty(implicit representation: RepresentationType) =
     construct(representation.fromObject(Map()), Vector())
@@ -58,14 +58,14 @@ trait DataCompanion[+Type <: DataType[Type, RepresentationType], -Representation
 }
 
 trait DataType[+T <: DataType[T, RepresentationType], +RepresentationType <: DataRepresentation] extends Dynamic {
-  def companion: DataCompanion[T, RepresentationType]
+  //def companion: DataCompanion[T, DataRepresentation]
   protected def root: Array[Any]
   implicit def representation: RepresentationType
   def path: Vector[Either[Int, String]]
   protected def doNormalize(orEmpty: Boolean): Any
   def normalize = doNormalize(false)
 
-  def wrap(any: Any): T
+  def wrap(any: Any, path: Vector[Either[Int, String]] = Vector()): T
 
   /** Navigates the JSON using the `List[String]` parameter, and returns the element at that
     * position in the tree. */
@@ -75,12 +75,12 @@ trait DataType[+T <: DataType[T, RepresentationType], +RepresentationType <: Dat
   def normalizeOrEmpty: Any =
     try normalize catch { case e: Exception => representation.fromObject(Map()) }
 
-  def format: String = companion.format(Some(normalize), 0, representation, " ", "\n")
+  def format: String// = companion.format(Some(normalize), 0, representation, " ", "\n")
 
-  def serialize: String = companion.format(Some(normalize), 0, representation, "", "")
+  def serialize: String// = companion.format(Some(normalize), 0, representation, "", "")
 
-  def apply(i: Int): T =
-    companion.constructRaw(root, Left(i) +: path)
+  def apply(i: Int): T = wrap(root(0), Left(i) +: path)
+    //companion.constructRaw(root, Left(i) +: path)
 
   def applyDynamic(key: String)(i: Int): T = selectDynamic(key).apply(i)
 
@@ -94,8 +94,8 @@ trait DataType[+T <: DataType[T, RepresentationType], +RepresentationType <: Dat
   override def hashCode = root(0).hashCode & "json".hashCode
 
   /** Assumes the Json object wraps a `Map`, and extracts the element `key`. */
-  def selectDynamic(key: String): T =
-    companion.constructRaw(root, Right(key) +: path)
+  def selectDynamic(key: String): T = wrap(root(0), Right(key) +: path)
+    //companion.constructRaw(root, Right(key) +: path)
 
   def extract(sp: Vector[String]): DataType[T, RepresentationType] =
     if(sp.isEmpty) this else selectDynamic(sp.head).extract(sp.tail)
@@ -115,10 +115,10 @@ trait MutableDataType[+T <: DataType[T, RepresentationType], RepresentationType 
     case Vector() =>
       setRoot(newVal)
     case Left(idx) +: init =>
-      val jb = companion.constructRaw(root, init)
+      val jb = wrap(root(0), init) //companion.constructRaw(root, init)
       updateParents(init, representation.setArrayValue(jb.normalizeOrNil, idx, newVal))
     case Right(key) +: init =>
-      val jb = companion.constructRaw(root, init)
+      val jb = wrap(root(0), init) //companion.constructRaw(root, init)
       updateParents(init, representation.setObjectValue(jb.normalizeOrEmpty, key, newVal))
   }
 

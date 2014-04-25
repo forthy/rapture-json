@@ -67,8 +67,6 @@ trait JsonDataCompanion[+Type <: JsonDataType[Type, RepresentationType],
 trait JsonDataType[+T <: JsonDataType[T, RepresentationType], RepresentationType <: JsonRepresentation]
     extends DataType[T, RepresentationType] {
  
-  def wrap(any: Any): T
-
   /** Assumes the Json object is wrapping a `T`, and casts (intelligently) to that type. */
   def as[S](implicit ext: Extractor[S, T], eh: ExceptionHandler): eh.![S, DataGetException] =
     eh wrap {
@@ -144,7 +142,9 @@ object Json extends JsonDataCompanion[Json, JsonRepresentation] {
 class Json(val root: Array[Any], val path: Vector[Either[Int, String]] = Vector())(implicit
     val representation: JsonRepresentation) extends JsonDataType[Json, JsonRepresentation] {
 
-  def wrap(any: Any): Json = new Json(Array(any))
+  def wrap(any: Any, path: Vector[Either[Int, String]]): Json = new Json(Array(any), path)
+  def format: String = Json.format(Some(normalize), 0, representation, " ", "\n")
+  def serialize: String = Json.format(Some(normalize), 0, representation, "", "")
   val companion = Json
   def $accessInnerMap(k: String): Any = representation.dereferenceObject(root(0), k)
 
@@ -158,9 +158,11 @@ object JsonBuffer extends JsonDataCompanion[JsonBuffer, JsonBufferRepresentation
 
 class JsonBuffer(protected val root: Array[Any], val path: Vector[Either[Int, String]] = Vector())(implicit val representation: JsonBufferRepresentation) extends JsonDataType[JsonBuffer, JsonBufferRepresentation] with MutableDataType[JsonBuffer, JsonBufferRepresentation] {
  
-  def wrap(any: Any): JsonBuffer = new JsonBuffer(Array(any))
+  def wrap(any: Any, path: Vector[Either[Int, String]]): JsonBuffer = new JsonBuffer(Array(any), path)
   val companion = JsonBuffer
   def setRoot(value: Any) = root(0) = value
+  def format: String = Json.format(Some(normalize), 0, representation, " ", "\n")
+  def serialize: String = Json.format(Some(normalize), 0, representation, "", "")
 }
 
 //class AnyExtractor[T](cast: Json => T) extends BasicExtractor[T](x => cast(x))

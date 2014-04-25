@@ -49,18 +49,18 @@ object Extractor {
     BasicExtractor[Any, J](_.root(0))
 
   
-  implicit def genSeqExtractor[T, Coll[_], R <: DataRepresentation, J <: DataType[J, R]](implicit cbf:
-      scala.collection.generic.CanBuildFrom[Nothing, T, Coll[T]],
-      ext: Extractor[T, J]): Extractor[Coll[T], J] = BasicExtractor[Coll[T], J]({ x =>
-      x.representation.getArray(x.root(0)).to[List].map(v => ext.construct(x.wrap(v))).to[Coll]
-      })
+  implicit def genSeqExtractor[T, Coll[_], J <: DataType[J, R] forSome { type R <:
+      DataRepresentation }](implicit cbf: scala.collection.generic.CanBuildFrom[Nothing, T,
+      Coll[T]], ext: Extractor[T, J]): Extractor[Coll[T], J] =
+    BasicExtractor[Coll[T], J]({ x => println("x = "+x+";root(0) = "+x.root(0)); x.representation.getArray(x.root(0)).to[List].map({v => println("v = "+v);
+        ext.construct(x.wrap(v)) }).to[Coll] })
 
-  implicit def optionExtractor[T, R <: DataRepresentation, J <: DataType[J, R]]
+  implicit def optionExtractor[T, J <: DataType[J, R] forSome { type R <: DataRepresentation }]
       (implicit ext: Extractor[T, J]): Extractor[Option[T], J] =
     new BasicExtractor[Option[T], J](x => try Some(x.root(0): Any) map (v =>
         ext.construct(x.wrap(v))) catch { case e: Exception => None })
 
-  implicit def mapExtractor[T, R <: DataRepresentation, J <: DataType[J, R]]
+  implicit def mapExtractor[T, J <: DataType[J, R] forSome { type R <: DataRepresentation }]
       (implicit ext: Extractor[T, J]): Extractor[Map[String, T], J] =
     BasicExtractor[Map[String, T], J](x => x.representation.getObject(x.root(0)) mapValues {
         v => ext.construct(x.wrap(v)) })
@@ -70,7 +70,7 @@ object Extractor {
 trait Extractor[T, -D] { ext =>
   def construct(any: D): T
   def map[T2](fn: T => T2) = new Extractor[T2, D] {
-    def construct(any: D) = fn(ext.construct(any))
+    def construct(any: D): T2 = fn(ext.construct(any))
   }
 }
 
