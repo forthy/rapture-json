@@ -98,6 +98,10 @@ trait JsonDataCompanion[+Type <: JsonDataType[Type, ParserType],
   }
 }
 
+case class DPath(path: List[String]) extends Dynamic {
+  def selectDynamic(v: String) = DPath(v :: path)
+}
+
 trait DataType[+T <: DataType[T, ParserType], ParserType[S] <: DataParser[S]] extends Dynamic {
   def companion: DataCompanion[T, ParserType]
   protected def root: Array[Any]
@@ -110,6 +114,33 @@ trait DataType[+T <: DataType[T, ParserType], ParserType[S] <: DataParser[S]] ex
     * position in the tree. */
   def normalizeOrNil: Any =
     try normalize catch { case e: Exception => parser.fromArray(List()) }
+
+  def ++[S <: DataType[S, ParserType]](b: S): T = {
+    def merge(a: Any, b: Any): Any = {
+      if(parser.isObject(b)) {
+        if(parser.isObject(a)) {
+          parser.fromObject(parser.getKeys(b).foldLeft(parser.getObject(a)) { case (as, k) =>
+            as + (k -> {
+              if(as contains k) merge(as(k), parser.dereferenceObject(b, k))
+              else parser.dereferenceObject(b, k)
+            })
+          })
+        } else b
+      } else if(parser.isArray(b)) {
+        if(parser.isArray(a)) parser.fromArray(parser.getArray(a) ++ parser.getArray(b))
+        else b
+      } else b
+    }
+    companion.construct(merge(normalize, b.root(0)), Vector())
+  }
+
+  def +(pv: (DPath => DPath, ForcedConversion)) =
+    this ++ companion.construct(add(pv._1(DPath(Nil)).path.reverse, pv._2.value), Vector())
+
+  private def add(path: List[String], v: Any): Any = path match {
+    case Nil => v
+    case next :: list => parser.fromObject(Map(next -> add(list, v)))
+  }
 
   def normalizeOrEmpty: Any =
     try normalize catch { case e: Exception => parser.fromObject(Map()) }
@@ -138,13 +169,16 @@ trait DataType[+T <: DataType[T, ParserType], ParserType[S] <: DataParser[S]] ex
   def selectDynamic(key: String): T =
     companion.constructRaw(root, Right(key) +: path)
 
+  def \(key: String): T =
+    companion.constructRaw(root, Right(key) +: path)
+
   def extract(sp: Vector[String]): DataType[T, ParserType] =
     if(sp.isEmpty) this else selectDynamic(sp.head).extract(sp.tail)
   
   override def toString = try format catch {
     case e: DataGetException => "undefined"
   }
-  
+
 }
 
 trait MutableDataType[+T <: DataType[T, ParserType], ParserType[S] <: MutableDataParser[S]]
