@@ -103,17 +103,20 @@ case class DPath(path: List[String]) extends Dynamic {
 }
 
 trait DataType[+T <: DataType[T, ParserType], ParserType[S] <: DataParser[S]] extends Dynamic {
-  def companion: DataCompanion[T, ParserType]
+  protected def companion: DataCompanion[T, ParserType]
   protected def root: Array[Any]
-  implicit def parser: ParserType[_]
-  def path: Vector[Either[Int, String]]
+  implicit protected def parser: ParserType[_]
+  protected def path: Vector[Either[Int, String]]
   protected def doNormalize(orEmpty: Boolean): Any
   def normalize = doNormalize(false)
   
   /** Navigates the JSON using the `List[String]` parameter, and returns the element at that
     * position in the tree. */
-  def normalizeOrNil: Any =
+  protected def normalizeOrNil: Any =
     try normalize catch { case e: Exception => parser.fromArray(List()) }
+  
+  protected def normalizeOrEmpty: Any =
+    try normalize catch { case e: Exception => parser.fromObject(Map()) }
 
   def ++[S <: DataType[S, ParserType]](b: S): T = {
     def merge(a: Any, b: Any): Any = {
@@ -134,16 +137,13 @@ trait DataType[+T <: DataType[T, ParserType], ParserType[S] <: DataParser[S]] ex
     companion.construct(merge(normalize, b.root(0)), Vector())
   }
 
-  def +(pv: (DPath => DPath, ForcedConversion)) =
+  def +(pv: (DPath => DPath, ForcedConversion)) = {
+    def add(path: List[String], v: Any): Any = path match {
+      case Nil => v
+      case next :: list => parser.fromObject(Map(next -> add(list, v)))
+    }
     this ++ companion.construct(add(pv._1(DPath(Nil)).path.reverse, pv._2.value), Vector())
-
-  private def add(path: List[String], v: Any): Any = path match {
-    case Nil => v
-    case next :: list => parser.fromObject(Map(next -> add(list, v)))
   }
-
-  def normalizeOrEmpty: Any =
-    try normalize catch { case e: Exception => parser.fromObject(Map()) }
 
   def format: String = companion.format(Some(normalize), 0, parser, " ", "\n")
 
