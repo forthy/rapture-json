@@ -29,11 +29,47 @@ import scala.annotation._
 import language.experimental.macros
 import language.higherKinds
 
-object JsonMacros {
-  def jsonExtractorMacro[T: c.WeakTypeTag](c: Context): c.Expr[Extractor[T, Json]] =
-    Macros.extractorMacro[T, Json](c)
-  
-  def jsonBufferExtractorMacro[T: c.WeakTypeTag](c: Context): c.Expr[Extractor[T, JsonBuffer]] =
-    Macros.extractorMacro[T, JsonBuffer](c)
+trait Serializers {
+
+  implicit def identitySerializer(implicit ast: JsonAst): Serializer[Json] =
+    new Serializer[Json] { def serialize(j: Json) = j.$root.value }
+
+  implicit def intSerializer(implicit ast: JsonAst): Serializer[Int] =
+    new Serializer[Int] { def serialize(i: Int) = ast.fromDouble(i.toDouble) }
+
+  implicit def booleanSerializer(implicit ast: JsonAst): Serializer[Boolean] =
+    new Serializer[Boolean] { def serialize(b: Boolean) = ast.fromBoolean(b) }
+
+  implicit def stringSerializer(implicit ast: JsonAst): Serializer[String] =
+    new Serializer[String] { def serialize(s: String) = ast.fromString(s) }
+
+  implicit def floatSerializer(implicit ast: JsonAst): Serializer[Float] =
+    new Serializer[Float] { def serialize(f: Float) = ast.fromDouble(f.toDouble) }
+
+  implicit def doubleSerializer(implicit ast: JsonAst): Serializer[Double] =
+    new Serializer[Double] { def serialize(d: Double) = ast.fromDouble(d) }
+
+  implicit def longSerializer(implicit ast: JsonAst): Serializer[Long] =
+    new Serializer[Long] { def serialize(l: Long) = ast.fromDouble(l.toDouble) }
+
+  implicit def shortSerializer(implicit ast: JsonAst): Serializer[Short] =
+    new Serializer[Short] { def serialize(s: Short) = ast.fromDouble(s.toDouble) }
+
+  implicit def byteSerializer(implicit ast: JsonAst): Serializer[Byte] =
+    new Serializer[Byte] { def serialize(b: Byte) = ast.fromDouble(b.toDouble) }
+
+  implicit def listSerializer[T: Serializer](implicit ast: JsonAst): Serializer[List[T]] =
+    new Serializer[List[T]] { def serialize(xs: List[T]) = ast.fromArray(xs.map(?[Serializer[T]].serialize)) }
+
+  implicit def genSeqSerializer[T: Serializer](implicit ast: JsonAst): Serializer[Traversable[T]] =
+    new Serializer[Traversable[T]] {
+      def serialize(xs: Traversable[T]) =
+        ast.fromArray(xs.map(?[Serializer[T]].serialize).to[List])
+    }
+
+  implicit def mapSerializer[T: Serializer](implicit ast: JsonAst): Serializer[Map[String, T]] =
+    new Serializer[Map[String, T]] {
+      def serialize(m: Map[String, T]) = ast.fromObject(m.mapValues(?[Serializer[T]].serialize))
+    }
 }
 

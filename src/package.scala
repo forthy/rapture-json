@@ -21,19 +21,23 @@
 package rapture.json
 
 import rapture.core._
+import rapture.data._
 
 import language.higherKinds
 import language.experimental.macros
 
-object `package` {
+object `package` extends Serializers with Extractors {
 
-  implicit def extractorMacro[T <: Product]: Extractor[T] =
-    macro Macros.extractorMacro[T]
+  implicit def jsonExtractorMacro[T <: Product]: Extractor[T, Json] =
+    macro JsonMacros.jsonExtractorMacro[T]
   
-  implicit def jsonizerMacro[T <: Product](implicit parser: JsonParser[_]): Jsonizer[T] =
-    macro Macros.jsonizerMacro[T]
+  implicit def jsonBufferExtractorMacro[T <: Product]: Extractor[T, JsonBuffer] =
+    macro JsonMacros.jsonBufferExtractorMacro[T]
   
-  implicit def jsonStrings(sc: StringContext)(implicit parser: JsonParser[String]) =
+  implicit def serializerMacro[T <: Product](implicit ast: JsonAst): Serializer[T] =
+    macro Macros.serializerMacro[T]
+  
+  implicit def jsonStrings(sc: StringContext)(implicit parser: Parser[String, JsonAst]) =
     new JsonStrings(sc)
 
 }

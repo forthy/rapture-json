@@ -21,63 +21,18 @@
 package rapture.json
 
 import rapture.core._
+import rapture.data._
 
-import scala.collection.mutable.{ListBuffer, HashMap}
+import scala.util.Try
 import scala.collection.JavaConverters
 
-object JsonTypes {
-  sealed class JsonType(val name: String)
-  case object Number extends JsonType("number")
-  case object String extends JsonType("string")
-  case object Null extends JsonType("null")
-  case object Boolean extends JsonType("boolean")
-  case object Array extends JsonType("array")
-  case object Object extends JsonType("object")
-  case object Undefined extends JsonType("undefined")
-}
+/** Represents a JSON ast implementation which is used throughout this library */
+trait JsonAst extends DataAst {
 
-trait DataParser[-Source] {
-  def parse(s: Source): Option[Any]
-  
-  /** Dereferences the named element within the JSON object. */
-  def dereferenceObject(obj: Any, element: String): Any =
-    getObject(obj)(element)
-  
-  /** Returns at `Iterator[String]` over the names of the elements in the JSON object. */
-  def getKeys(obj: Any): Iterator[String] =
-    getObject(obj).keys.iterator
- 
-  /** Gets the indexed element from the parsed JSON array. */
-  def dereferenceArray(array: Any, element: Int): Any =
-    getArray(array)(element)
-  
-  /** Tests if the element represents an `Object` */
-  def isObject(any: Any): Boolean
-  
-  /** Tests if the element represents an `Array` */
-  def isArray(any: Any): Boolean
-  
-  /** Extracts a JSON object as a `Map[String, Any]` from the parsed JSON. */
-  def getObject(obj: Any): Map[String, Any]
+  def isScalar(any: Any) = isBoolean(any) || isNumber(any) || isString(any)
 
-  def fromObject(obj: Map[String, Any]): Any
-
-  /** Extracts a JSON array as a `Seq[Any]` from the parsed JSON. */
-  def getArray(array: Any): Seq[Any]
-
-  def fromArray(array: Seq[Any]): Any
-
-}
-
-trait MutableDataParser[-Source] extends DataParser[Source] {
-  def setObjectValue(obj: Any, name: String, value: Any): Any
-  def setArrayValue(array: Any, index: Int, value: Any): Any
-  def removeObjectValue(obj: Any, name: String): Any
-  def addArrayValue(array: Any, value: Any): Any
-}
-
-/** Represents a JSON parser implementation which is used throughout this library */
-trait JsonParser[-Source] extends DataParser[Source] {
+  def getScalar(any: Any) = Try(getDouble(any)) orElse Try(getBoolean(any)) orElse
+      Try(getString(any)) getOrElse { throw new Exception }
 
   /** Extracts a `Boolean` from the parsed JSON. */
   def getBoolean(boolean: Any): Boolean
@@ -106,18 +61,21 @@ trait JsonParser[-Source] extends DataParser[Source] {
   /** Tests if the element represents a `null` */
   def isNull(any: Any): Boolean
 
-  /** Returns the JsonType instance for the particular type. */
-  def getType(any: Any): JsonTypes.JsonType =
-    if(isBoolean(any)) JsonTypes.Boolean
-    else if(isString(any)) JsonTypes.String
-    else if(isNumber(any)) JsonTypes.Number
-    else if(isObject(any)) JsonTypes.Object
-    else if(isArray(any)) JsonTypes.Array
-    else if(isNull(any)) JsonTypes.Null
-    else JsonTypes.Undefined
+  /** The value used to represent a `null` */
+  def nullValue: Any
+
+  /** Returns the DataType instance for the particular type. */
+  def getType(any: Any): DataTypes.DataType =
+    if(isBoolean(any)) DataTypes.Boolean
+    else if(isString(any)) DataTypes.String
+    else if(isNumber(any)) DataTypes.Number
+    else if(isObject(any)) DataTypes.Object
+    else if(isArray(any)) DataTypes.Array
+    else if(isNull(any)) DataTypes.Null
+    else DataTypes.Undefined
 
   protected def typeTest(pf: PartialFunction[Any, Unit])(v: Any) = pf.isDefinedAt(v)
 }
 
-trait JsonBufferParser[S] extends JsonParser[S] with MutableDataParser[S]
+trait JsonBufferAst extends JsonAst with MutableDataAst
 
