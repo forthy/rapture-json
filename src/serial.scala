@@ -18,7 +18,6 @@
 * either express or implied. See the License for the specific language governing permissions   *
 * and limitations under the License.                                                           *
 \**********************************************************************************************/
-
 package rapture.json
 
 import rapture.core._
@@ -30,27 +29,47 @@ import scala.annotation._
 import language.experimental.macros
 import language.higherKinds
 
-trait Extractors {
+trait Serializers {
 
-  implicit def identityExtractor[D]: Extractor[D, D] = BasicExtractor[D, D](identity)
+  implicit def identitySerializer(implicit ast: JsonAst): Serializer[Json] =
+    new Serializer[Json] { def serialize(j: Json) = j.$root.value }
 
-  implicit val stringExtractor: Extractor[String, Json] = BasicExtractor[String, Json](x =>
-      x.$ast.getString(x.$root.value))
+  implicit def intSerializer(implicit ast: JsonAst): Serializer[Int] =
+    new Serializer[Int] { def serialize(i: Int) = ast.fromDouble(i.toDouble) }
 
-  implicit val doubleExtractor: Extractor[Double, Json] = BasicExtractor[Double, Json](x =>
-      x.$ast.getDouble(x.$root.value))
+  implicit def booleanSerializer(implicit ast: JsonAst): Serializer[Boolean] =
+    new Serializer[Boolean] { def serialize(b: Boolean) = ast.fromBoolean(b) }
 
-  implicit val booleanExtractor: Extractor[Boolean, Json] = BasicExtractor[Boolean, Json](x =>
-      x.$ast.getBoolean(x.$root.value))
+  implicit def stringSerializer(implicit ast: JsonAst): Serializer[String] =
+    new Serializer[String] { def serialize(s: String) = ast.fromString(s) }
 
-  implicit val stringExtractor2: Extractor[String, JsonBuffer] =
-    BasicExtractor[String, JsonBuffer](x => x.$ast.getString(x.$root.value))
+  implicit def floatSerializer(implicit ast: JsonAst): Serializer[Float] =
+    new Serializer[Float] { def serialize(f: Float) = ast.fromDouble(f.toDouble) }
 
-  implicit val doubleExtractor2: Extractor[Double, JsonBuffer] = BasicExtractor[Double, JsonBuffer](x =>
-      x.$ast.getDouble(x.$root.value))
+  implicit def doubleSerializer(implicit ast: JsonAst): Serializer[Double] =
+    new Serializer[Double] { def serialize(d: Double) = ast.fromDouble(d) }
 
-  implicit val booleanExtractor2: Extractor[Boolean, JsonBuffer] = BasicExtractor[Boolean, JsonBuffer](x =>
-      x.$ast.getBoolean(x.$root.value))
+  implicit def longSerializer(implicit ast: JsonAst): Serializer[Long] =
+    new Serializer[Long] { def serialize(l: Long) = ast.fromDouble(l.toDouble) }
+
+  implicit def shortSerializer(implicit ast: JsonAst): Serializer[Short] =
+    new Serializer[Short] { def serialize(s: Short) = ast.fromDouble(s.toDouble) }
+
+  implicit def byteSerializer(implicit ast: JsonAst): Serializer[Byte] =
+    new Serializer[Byte] { def serialize(b: Byte) = ast.fromDouble(b.toDouble) }
+
+  implicit def listSerializer[T: Serializer](implicit ast: JsonAst): Serializer[List[T]] =
+    new Serializer[List[T]] { def serialize(xs: List[T]) = ast.fromArray(xs.map(?[Serializer[T]].serialize)) }
+
+  implicit def genSeqSerializer[T: Serializer](implicit ast: JsonAst): Serializer[Traversable[T]] =
+    new Serializer[Traversable[T]] {
+      def serialize(xs: Traversable[T]) =
+        ast.fromArray(xs.map(?[Serializer[T]].serialize).to[List])
+    }
+
+  implicit def mapSerializer[T: Serializer](implicit ast: JsonAst): Serializer[Map[String, T]] =
+    new Serializer[Map[String, T]] {
+      def serialize(m: Map[String, T]) = ast.fromObject(m.mapValues(?[Serializer[T]].serialize))
+    }
 }
-
 

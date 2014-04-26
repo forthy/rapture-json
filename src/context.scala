@@ -26,7 +26,7 @@ import rapture.data._
 /** Provides support for JSON literals, in the form json" { } " or json""" { } """.
   * Interpolation is used to substitute variable names into the JSON, and to extract values
   * from a JSON string. */
-class JsonStrings[R <: JsonRepresentation](sc: StringContext)(implicit parser: Parser[String, R])
+class JsonStrings[R <: JsonAst](sc: StringContext)(implicit parser: Parser[String, R])
     extends {
   object json extends DataContext(Json, sc, parser)
 }

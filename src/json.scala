@@ -28,93 +28,95 @@ import scala.collection.mutable.{ListBuffer, HashMap}
 import language.dynamics
 import language.higherKinds
 
-trait JsonDataCompanion[+Type <: JsonDataType[Type, RepresentationType],
-    RepresentationType <: JsonRepresentation] extends DataCompanion[Type, RepresentationType] {
+trait JsonDataCompanion[+Type <: JsonDataType[Type, AstType],
+    AstType <: JsonAst] extends DataCompanion[Type, AstType] {
 
   /** Formats the JSON object for multi-line readability. */
-  def format(json: Option[Any], ln: Int, representation: RepresentationType, pad: String = " ",
+  def format(json: Option[Any], ln: Int, ast: AstType, pad: String = " ",
       brk: String = "\n"): String = {
     val indent = pad*ln
     json match {
       case None => "null"
       case Some(j) =>
-        if(representation.isString(j)) {
-          "\""+representation.getString(j).replaceAll("\\\\", "\\\\\\\\").replaceAll("\r",
+        if(ast.isString(j)) {
+          "\""+ast.getString(j).replaceAll("\\\\", "\\\\\\\\").replaceAll("\r",
               "\\\\r").replaceAll("\n", "\\\\n").replaceAll("\"", "\\\\\"")+"\""
-        } else if(representation.isBoolean(j)) {
-          if(representation.getBoolean(j)) "true" else "false"
-        } else if(representation.isNumber(j)) {
-          val n = representation.getDouble(j)
+        } else if(ast.isBoolean(j)) {
+          if(ast.getBoolean(j)) "true" else "false"
+        } else if(ast.isNumber(j)) {
+          val n = ast.getDouble(j)
           if(n == n.floor) n.toInt.toString else n.toString
-        } else if(representation.isArray(j)) {
-          List("[", representation.getArray(j) map { v =>
-            s"${indent}${pad}${format(Some(v), ln + 1, representation, pad, brk)}"
+        } else if(ast.isArray(j)) {
+          val arr = ast.getArray(j)
+          if(arr.isEmpty) "[]" else List("[", arr map { v =>
+            s"${indent}${pad}${format(Some(v), ln + 1, ast, pad, brk)}"
           } mkString s",${brk}", s"${indent}]") mkString brk
-        } else if(representation.isObject(j)) {
-          List("{", representation.getKeys(j) map { k =>
-            val inner = try Some(representation.dereferenceObject(j, k)) catch {
+        } else if(ast.isObject(j)) {
+          val keys = ast.getKeys(j)
+          if(keys.isEmpty) "{}" else List("{", keys map { k =>
+            val inner = try Some(ast.dereferenceObject(j, k)) catch {
               case e: Exception => None
             }
-            s"""${indent}${pad}"${k}":${pad}${format(inner, ln + 1, representation, pad, brk)}"""
+            s"""${indent}${pad}"${k}":${pad}${format(inner, ln + 1, ast, pad, brk)}"""
           } mkString s",${brk}", s"${indent}}") mkString brk
-        } else if(representation.isNull(j)) "null"
+        } else if(ast.isNull(j)) "null"
         else if(j == DataCompanion.Empty) "empty"
         else "undefined"
     }
   }
 }
 
-trait JsonDataType[+T <: JsonDataType[T, RepresentationType], RepresentationType <: JsonRepresentation]
-    extends DataType[T, RepresentationType]
+trait JsonDataType[+T <: JsonDataType[T, AstType], AstType <: JsonAst]
+    extends DataType[T, AstType]
+
+object JsonBuffer extends JsonDataCompanion[JsonBuffer, JsonBufferAst] {
+  def construct(any: VCell, path: Vector[Either[Int, String]])(implicit ast:
+      JsonBufferAst): JsonBuffer = new JsonBuffer(any, path)
+}
 
 /** Companion object to the `Json` type, providing factory and extractor methods, and a JSON
   * pretty printer. */
-object Json extends JsonDataCompanion[Json, JsonRepresentation] {
-  def constructRaw(any: Array[Any], path: Vector[Either[Int, String]])(implicit representation: JsonRepresentation): Json =
-    new Json(any, path)
+object Json extends JsonDataCompanion[Json, JsonAst] {
+  def construct(any: VCell, path: Vector[Either[Int, String]])(implicit ast:
+      JsonAst): Json = new Json(any, path)
   
-  def convert(json: Json)(implicit representation: JsonRepresentation): Json = {
-    val oldRepresentation = json.representation
+  def convert(json: Json)(implicit ast: JsonAst): Json = {
+    val oldAst = json.$ast
     
     def convert(j: Any): Any =
-      if(oldRepresentation.isString(j))
-        representation.fromString(oldRepresentation.getString(j))
-      else if(oldRepresentation.isBoolean(j))
-        representation.fromBoolean(oldRepresentation.getBoolean(j))
-      else if(oldRepresentation.isNumber(j))
-        representation.fromDouble(oldRepresentation.getDouble(j))
-      else if(oldRepresentation.isArray(j))
-        representation.fromArray(oldRepresentation.getArray(j).map(convert))
-      else if(oldRepresentation.isObject(j))
-        representation.fromObject(oldRepresentation.getObject(j).mapValues(convert))
-      else representation.nullValue
+      if(oldAst.isString(j))
+        ast.fromString(oldAst.getString(j))
+      else if(oldAst.isBoolean(j))
+        ast.fromBoolean(oldAst.getBoolean(j))
+      else if(oldAst.isNumber(j))
+        ast.fromDouble(oldAst.getDouble(j))
+      else if(oldAst.isArray(j))
+        ast.fromArray(oldAst.getArray(j).map(convert))
+      else if(oldAst.isObject(j))
+        ast.fromObject(oldAst.getObject(j).mapValues(convert))
+      else ast.nullValue
 
-    new Json(Array(convert(json.root(0))), json.path)(representation)
+    new Json(VCell(convert(json.$root.value)), json.$path)(ast)
   }
-
 }
 
 /** Represents some parsed JSON. */
-class Json(val root: Array[Any], val path: Vector[Either[Int, String]] = Vector())(implicit
-    val representation: JsonRepresentation) extends JsonDataType[Json, JsonRepresentation] {
-
-  def wrap(any: Any, path: Vector[Either[Int, String]]): Json = new Json(Array(any), path)
-  def format: String = Json.format(Some(normalize), 0, representation, " ", "\n")
-  def serialize: String = Json.format(Some(normalize), 0, representation, "", "")
-  val companion = Json
-  def $accessInnerMap(k: String): Any = representation.dereferenceObject(root(0), k)
+class Json(val $root: VCell, val $path: Vector[Either[Int, String]] = Vector())(implicit
+    val $ast: JsonAst) extends JsonDataType[Json, JsonAst] {
+  def $wrap(any: Any, path: Vector[Either[Int, String]]): Json = new Json(VCell(any), path)
+  def $deref(path: Vector[Either[Int, String]]): Json = new Json($root, path)
+  def format: String = Json.format(Some($normalize), 0, $ast, " ", "\n")
+  def serialize: String = Json.format(Some($normalize), 0, $ast, "", "")
+  def $accessInnerMap(k: String): Any = $ast.dereferenceObject($root.value, k)
 }
 
-object JsonBuffer extends JsonDataCompanion[JsonBuffer, JsonBufferRepresentation] {
-  def constructRaw(any: Array[Any], path: Vector[Either[Int, String]])(implicit representation:
-      JsonBufferRepresentation): JsonBuffer = new JsonBuffer(any, path)
-  
-}
-
-class JsonBuffer(protected val root: Array[Any], val path: Vector[Either[Int, String]] = Vector())(implicit val representation: JsonBufferRepresentation) extends JsonDataType[JsonBuffer, JsonBufferRepresentation] with MutableDataType[JsonBuffer, JsonBufferRepresentation] {
-  def wrap(any: Any, path: Vector[Either[Int, String]]): JsonBuffer = new JsonBuffer(Array(any), path)
-  val companion = JsonBuffer
-  def setRoot(value: Any) = root(0) = value
-  def format: String = Json.format(Some(normalize), 0, representation, " ", "\n")
-  def serialize: String = Json.format(Some(normalize), 0, representation, "", "")
+class JsonBuffer(val $root: VCell, val $path: Vector[Either[Int, String]] = Vector())
+    (implicit val $ast: JsonBufferAst) extends
+    JsonDataType[JsonBuffer, JsonBufferAst] with
+    MutableDataType[JsonBuffer, JsonBufferAst] {
+  def $wrap(any: Any, path: Vector[Either[Int, String]]): JsonBuffer = new JsonBuffer(VCell(any), path)
+  def $deref(path: Vector[Either[Int, String]]): JsonBuffer = new JsonBuffer($root, path)
+  def format: String = Json.format(Some($normalize), 0, $ast, " ", "\n")
+  def serialize: String = Json.format(Some($normalize), 0, $ast, "", "")
+  def $accessInnerMap(k: String): Any = $ast.dereferenceObject($root.value, k)
 }

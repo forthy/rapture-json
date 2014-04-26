@@ -26,8 +26,8 @@ import rapture.data._
 import scala.util.Try
 import scala.collection.JavaConverters
 
-/** Represents a JSON representation implementation which is used throughout this library */
-trait JsonRepresentation extends DataRepresentation {
+/** Represents a JSON ast implementation which is used throughout this library */
+trait JsonAst extends DataAst {
 
   def isScalar(any: Any) = isBoolean(any) || isNumber(any) || isString(any)
 
@@ -77,5 +77,5 @@ trait JsonRepresentation extends DataRepresentation {
   protected def typeTest(pf: PartialFunction[Any, Unit])(v: Any) = pf.isDefinedAt(v)
 }
 
-trait JsonBufferRepresentation extends JsonRepresentation with MutableDataRepresentation
+trait JsonBufferAst extends JsonAst with MutableDataAst
 

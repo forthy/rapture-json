@@ -34,10 +34,10 @@ object `package` extends Serializers with Extractors {
   implicit def jsonBufferExtractorMacro[T <: Product]: Extractor[T, JsonBuffer] =
     macro JsonMacros.jsonBufferExtractorMacro[T]
   
-  implicit def serializerMacro[T <: Product](implicit representation: JsonRepresentation): Serializer[T] =
+  implicit def serializerMacro[T <: Product](implicit ast: JsonAst): Serializer[T] =
     macro Macros.serializerMacro[T]
   
-  implicit def jsonStrings(sc: StringContext)(implicit parser: Parser[String, JsonRepresentation]) =
+  implicit def jsonStrings(sc: StringContext)(implicit parser: Parser[String, JsonAst]) =
     new JsonStrings(sc)
 
 }

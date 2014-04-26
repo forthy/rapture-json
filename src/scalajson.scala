@@ -27,14 +27,14 @@ import scala.util.parsing.json.JSON
 package jsonBackends {
   package scalaJson {
     object `package` {
-      implicit val scalaJsonRepresentation = ScalaJsonRepresentation
-      implicit val scalaJsonParser = ScalaJsonParser
+      implicit val scalaJsonAst = ScalaJsonAst
+      implicit val scalaJsonBufferParser = ScalaJsonBufferParser
     }
   }
 }
 
-/** The default JSON representation implementation */
-object ScalaJsonRepresentation extends JsonBufferRepresentation {
+/** The default JSON ast implementation */
+object ScalaJsonAst extends JsonBufferAst {
   
   def getArray(array: Any): List[Any] = array match {
     case list: List[a] => list
@@ -101,8 +101,8 @@ object ScalaJsonRepresentation extends JsonBufferRepresentation {
   def nullValue: Any = null
 }
 
-object ScalaJsonParser extends Parser[String, JsonRepresentation] {
-  val representation = ScalaJsonRepresentation
+object ScalaJsonBufferParser extends Parser[String, JsonBufferAst] {
+  val ast = ScalaJsonAst
   def parse(s: String): Option[Any] = JSON.parseFull(s)
 }
 
