@@ -18,39 +18,15 @@
 * either express or implied. See the License for the specific language governing permissions   *
 * and limitations under the License.                                                           *
 \**********************************************************************************************/
-
 package rapture.json
 
 import rapture.core._
 import rapture.data._
 
-import scala.reflect.macros._
-import scala.annotation._
-
-import language.experimental.macros
-import language.higherKinds
-
-trait Extractors {
-
-  implicit def identityExtractor[D]: Extractor[D, D] = BasicExtractor[D, D](identity)
-
-  implicit val stringExtractor: Extractor[String, Json] = BasicExtractor[String, Json](x =>
-      x.representation.getString(x.root(0)))
-
-  implicit val doubleExtractor: Extractor[Double, Json] = BasicExtractor[Double, Json](x =>
-      x.representation.getDouble(x.root(0)))
-
-  implicit val booleanExtractor: Extractor[Boolean, Json] = BasicExtractor[Boolean, Json](x =>
-      x.representation.getBoolean(x.root(0)))
-
-/*  implicit val stringExtractor2: Extractor[String, JsonBuffer] =
-    BasicExtractor[String, JsonBuffer](x => x.representation.getString(x.root(0)))
-
-  implicit val doubleExtractor2: Extractor[Double, JsonBuffer] = BasicExtractor[Double, JsonBuffer](x =>
-      x.representation.getDouble(x.root(0)))
-
-  implicit val booleanExtractor2: Extractor[Boolean, JsonBuffer] = BasicExtractor[Boolean, JsonBuffer](x =>
-      x.representation.getBoolean(x.root(0)))*/
+/** Provides support for JSON literals, in the form json" { } " or json""" { } """.
+  * Interpolation is used to substitute variable names into the JSON, and to extract values
+  * from a JSON string. */
+class JsonStrings[R <: JsonRepresentation](sc: StringContext)(implicit parser: Parser[String, R])
+    extends {
+  object json extends DataContext(Json, sc, parser)
 }
-
-

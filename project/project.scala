@@ -5,13 +5,15 @@ object project extends ProjectSettings {
   def description = "Rapture JSON is a comprehensive library providing support for working with JSON in Scala"
   
   def dependencies = Seq(
-    "core" -> "0.10.0"
+    "core" -> "0.10.0",
+    "data" -> "0.10.0"
   )
   
   def thirdPartyDependencies = Nil
 
   def imports = Seq(
     "rapture.core._",
+    "rapture.data._",
     "rapture.json._",
     "jsonBackends.scalaJson._",
     "strategy.throwExceptions"

@@ -23,11 +23,16 @@ package rapture.json
 import rapture.core._
 import rapture.data._
 
-import scala.collection.mutable.{ListBuffer, HashMap}
+import scala.util.Try
 import scala.collection.JavaConverters
 
 /** Represents a JSON representation implementation which is used throughout this library */
 trait JsonRepresentation extends DataRepresentation {
+
+  def isScalar(any: Any) = isBoolean(any) || isNumber(any) || isString(any)
+
+  def getScalar(any: Any) = Try(getDouble(any)) orElse Try(getBoolean(any)) orElse
+      Try(getString(any)) getOrElse { throw new Exception }
 
   /** Extracts a `Boolean` from the parsed JSON. */
   def getBoolean(boolean: Any): Boolean

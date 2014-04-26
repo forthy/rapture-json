@@ -59,17 +59,17 @@ trait Serializers {
     new Serializer[Byte] { def serialize(b: Byte) = representation.fromDouble(b.toDouble) }
 
   implicit def listSerializer[T: Serializer](implicit representation: JsonRepresentation): Serializer[List[T]] =
-    new Serializer[List[T]] { def serialize(xs: List[T]) = representation.fromArray(xs.map(implicitly[Serializer[T]].serialize)) }
+    new Serializer[List[T]] { def serialize(xs: List[T]) = representation.fromArray(xs.map(?[Serializer[T]].serialize)) }
 
   implicit def genSeqSerializer[T: Serializer](implicit representation: JsonRepresentation): Serializer[Traversable[T]] =
     new Serializer[Traversable[T]] {
       def serialize(xs: Traversable[T]) =
-        representation.fromArray(xs.map(implicitly[Serializer[T]].serialize).to[List])
+        representation.fromArray(xs.map(?[Serializer[T]].serialize).to[List])
     }
 
   implicit def mapSerializer[T: Serializer](implicit representation: JsonRepresentation): Serializer[Map[String, T]] =
     new Serializer[Map[String, T]] {
-      def serialize(m: Map[String, T]) = representation.fromObject(m.mapValues(implicitly[Serializer[T]].serialize))
+      def serialize(m: Map[String, T]) = representation.fromObject(m.mapValues(?[Serializer[T]].serialize))
     }
 }
 
