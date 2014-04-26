@@ -65,51 +65,7 @@ trait JsonDataCompanion[+Type <: JsonDataType[Type, RepresentationType],
 }
 
 trait JsonDataType[+T <: JsonDataType[T, RepresentationType], RepresentationType <: JsonRepresentation]
-    extends DataType[T, RepresentationType] {
- 
-  /** Assumes the Json object is wrapping a `T`, and casts (intelligently) to that type. */
-  def as[S](implicit ext: Extractor[S, T], eh: ExceptionHandler): eh.![S, DataGetException] =
-    eh wrap {
-      try ext.construct(wrap(normalize)) catch {
-        case TypeMismatchException(f, e, _) => throw TypeMismatchException(f, e, path)
-        case e: MissingValueException => throw e
-      }
-    }
- 
-  protected def doNormalize(orEmpty: Boolean): Any =
-    yCombinator[(Any, Vector[Either[Int, String]]), Any] { fn => _ match {
-      case (j, Vector()) => j: Any
-      case (j, t :+ Right(k)) =>
-        fn(({
-          if(representation.isObject(j)) {
-            try representation.dereferenceObject(j, k) catch {
-              case TypeMismatchException(f, e, _) =>
-                TypeMismatchException(f, e, path.drop(t.length))
-              case e: Exception =>
-                if(orEmpty) DataCompanion.Empty
-                else throw MissingValueException(path.drop(t.length))
-            }
-          } else {
-            throw TypeMismatchException(representation.getType(j), DataTypes.Object,
-              path.drop(t.length))
-          }
-        }, t))
-      case (j, t :+ Left(i)) =>
-        fn((
-          if(representation.isArray(j)) {
-            try representation.dereferenceArray(j, i) catch {
-              case TypeMismatchException(f, e, _) =>
-                TypeMismatchException(f, e, path.drop(t.length))
-              case e: Exception =>
-                if(orEmpty) DataCompanion.Empty
-                else throw MissingValueException(path.drop(t.length))
-            }
-          } else {
-            throw TypeMismatchException(representation.getType(j), DataTypes.Array, path.drop(t.length))
-          }
-        , t))
-    } } (root(0) -> path)
-}
+    extends DataType[T, RepresentationType]
 
 /** Companion object to the `Json` type, providing factory and extractor methods, and a JSON
   * pretty printer. */
@@ -147,7 +103,6 @@ class Json(val root: Array[Any], val path: Vector[Either[Int, String]] = Vector(
   def serialize: String = Json.format(Some(normalize), 0, representation, "", "")
   val companion = Json
   def $accessInnerMap(k: String): Any = representation.dereferenceObject(root(0), k)
-
 }
 
 object JsonBuffer extends JsonDataCompanion[JsonBuffer, JsonBufferRepresentation] {
@@ -157,21 +112,9 @@ object JsonBuffer extends JsonDataCompanion[JsonBuffer, JsonBufferRepresentation
 }
 
 class JsonBuffer(protected val root: Array[Any], val path: Vector[Either[Int, String]] = Vector())(implicit val representation: JsonBufferRepresentation) extends JsonDataType[JsonBuffer, JsonBufferRepresentation] with MutableDataType[JsonBuffer, JsonBufferRepresentation] {
- 
   def wrap(any: Any, path: Vector[Either[Int, String]]): JsonBuffer = new JsonBuffer(Array(any), path)
   val companion = JsonBuffer
   def setRoot(value: Any) = root(0) = value
   def format: String = Json.format(Some(normalize), 0, representation, " ", "\n")
   def serialize: String = Json.format(Some(normalize), 0, representation, "", "")
 }
-
-//class AnyExtractor[T](cast: Json => T) extends BasicExtractor[T](x => cast(x))
-
-/*case class CascadeExtractor[T](casts: (Json => T)*) extends Extractor[T] {
-  def construct(js: Json) = {
-    (casts.foldLeft(None: Option[T]) { case (v, next) =>
-      v orElse { try Some(next(js)) catch { case e: Exception => None } }
-    }).get
-  }
-}*/
-

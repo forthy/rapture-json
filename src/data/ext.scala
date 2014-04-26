@@ -30,43 +30,43 @@ import language.experimental.macros
 import language.higherKinds
 
 object Extractor {
-  implicit def floatExtractor[J](implicit ext: Extractor[Double, J]): Extractor[Float, J] =
+  implicit def floatExtractor[Data](implicit ext: Extractor[Double, Data]): Extractor[Float, Data] =
     ext.map(_.toFloat)
 
-  implicit def shortExtractor[J](implicit ext: Extractor[Double, J]): Extractor[Short, J] =
+  implicit def shortExtractor[Data](implicit ext: Extractor[Double, Data]): Extractor[Short, Data] =
     ext.map(_.toShort)
 
-  implicit def intExtractor[J](implicit ext: Extractor[Double, J]): Extractor[Int, J] =
+  implicit def intExtractor[Data](implicit ext: Extractor[Double, Data]): Extractor[Int, Data] =
     ext.map(_.toInt)
 
-  implicit def longExtractor[J](implicit ext: Extractor[Double, J]): Extractor[Long, J] =
+  implicit def longExtractor[Data](implicit ext: Extractor[Double, Data]): Extractor[Long, Data] =
     ext.map(_.toLong)
 
-  implicit def byteExtractor[J](implicit ext: Extractor[Double, J]): Extractor[Byte, J] =
+  implicit def byteExtractor[Data](implicit ext: Extractor[Double, Data]): Extractor[Byte, Data] =
     ext.map(_.toInt.toByte)
 
-  implicit def anyExtractor[J <: DataType[_, DataRepresentation]]: Extractor[Any, J] =
-    BasicExtractor[Any, J](_.root(0))
+  implicit def anyExtractor[Data <: DataType[_, DataRepresentation]]: Extractor[Any, Data] =
+    BasicExtractor[Any, Data](_.root(0))
 
   
-  implicit def genSeqExtractor[T, Coll[_], J <: DataType[J, R] forSome { type R <:
+  implicit def genSeqExtractor[T, Coll[_], Data <: DataType[Data, R] forSome { type R <:
       DataRepresentation }](implicit cbf: scala.collection.generic.CanBuildFrom[Nothing, T,
-      Coll[T]], ext: Extractor[T, J]): Extractor[Coll[T], J] =
-    BasicExtractor[Coll[T], J]({ x => println("x = "+x+";root(0) = "+x.root(0)); x.representation.getArray(x.root(0)).to[List].map({v => println("v = "+v);
+      Coll[T]], ext: Extractor[T, Data]): Extractor[Coll[T], Data] =
+    BasicExtractor[Coll[T], Data]({ x => println("x = "+x+";root(0) = "+x.root(0)); x.representation.getArray(x.root(0)).to[List].map({v => println("v = "+v);
         ext.construct(x.wrap(v)) }).to[Coll] })
 
-  implicit def optionExtractor[T, J <: DataType[J, R] forSome { type R <: DataRepresentation }]
-      (implicit ext: Extractor[T, J]): Extractor[Option[T], J] =
-    new BasicExtractor[Option[T], J](x => try Some(x.root(0): Any) map (v =>
+  implicit def optionExtractor[T, Data <: DataType[Data, R] forSome { type R <: DataRepresentation }]
+      (implicit ext: Extractor[T, Data]): Extractor[Option[T], Data] =
+    new BasicExtractor[Option[T], Data](x => try Some(x.root(0): Any) map (v =>
         ext.construct(x.wrap(v))) catch { case e: Exception => None })
 
-  implicit def mapExtractor[T, J <: DataType[J, R] forSome { type R <: DataRepresentation }]
-      (implicit ext: Extractor[T, J]): Extractor[Map[String, T], J] =
-    BasicExtractor[Map[String, T], J](x => x.representation.getObject(x.root(0)) mapValues {
+  implicit def mapExtractor[T, Data <: DataType[Data, R] forSome { type R <: DataRepresentation }]
+      (implicit ext: Extractor[T, Data]): Extractor[Map[String, T], Data] =
+    BasicExtractor[Map[String, T], Data](x => x.representation.getObject(x.root(0)) mapValues {
         v => ext.construct(x.wrap(v)) })
 }
 
-@implicitNotFound("cannot extract type ${T} from JSON.")
+@implicitNotFound("cannot extract type ${T} from ${D}.")
 trait Extractor[T, -D] { ext =>
   def construct(any: D): T
   def map[T2](fn: T => T2) = new Extractor[T2, D] {

@@ -43,14 +43,14 @@ trait Extractors {
   implicit val booleanExtractor: Extractor[Boolean, Json] = BasicExtractor[Boolean, Json](x =>
       x.representation.getBoolean(x.root(0)))
 
-  implicit val stringExtractor2: Extractor[String, JsonBuffer] =
+/*  implicit val stringExtractor2: Extractor[String, JsonBuffer] =
     BasicExtractor[String, JsonBuffer](x => x.representation.getString(x.root(0)))
 
   implicit val doubleExtractor2: Extractor[Double, JsonBuffer] = BasicExtractor[Double, JsonBuffer](x =>
       x.representation.getDouble(x.root(0)))
 
   implicit val booleanExtractor2: Extractor[Boolean, JsonBuffer] = BasicExtractor[Boolean, JsonBuffer](x =>
-      x.representation.getBoolean(x.root(0)))
+      x.representation.getBoolean(x.root(0)))*/
 }
 
 
