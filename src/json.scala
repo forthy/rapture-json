@@ -32,12 +32,11 @@ trait JsonDataCompanion[+Type <: JsonDataType[Type, AstType],
     AstType <: JsonAst] extends DataCompanion[Type, AstType] {
 
   /** Formats the JSON object for multi-line readability. */
-  def format(json: Option[Any], ln: Int, ast: AstType, pad: String = " ",
+  def format(json: Any, ln: Int, ast: AstType, pad: String = " ",
       brk: String = "\n"): String = {
     val indent = pad*ln
     json match {
-      case None => "null"
-      case Some(j) =>
+      case j =>
         if(ast.isString(j)) {
           "\""+ast.getString(j).replaceAll("\\\\", "\\\\\\\\").replaceAll("\r",
               "\\\\r").replaceAll("\n", "\\\\n").replaceAll("\"", "\\\\\"")+"\""
@@ -49,14 +48,12 @@ trait JsonDataCompanion[+Type <: JsonDataType[Type, AstType],
         } else if(ast.isArray(j)) {
           val arr = ast.getArray(j)
           if(arr.isEmpty) "[]" else List("[", arr map { v =>
-            s"${indent}${pad}${format(Some(v), ln + 1, ast, pad, brk)}"
+            s"${indent}${pad}${format(v, ln + 1, ast, pad, brk)}"
           } mkString s",${brk}", s"${indent}]") mkString brk
         } else if(ast.isObject(j)) {
           val keys = ast.getKeys(j)
           if(keys.isEmpty) "{}" else List("{", keys map { k =>
-            val inner = try Some(ast.dereferenceObject(j, k)) catch {
-              case e: Exception => None
-            }
+            val inner = ast.dereferenceObject(j, k)
             s"""${indent}${pad}"${k}":${pad}${format(inner, ln + 1, ast, pad, brk)}"""
           } mkString s",${brk}", s"${indent}}") mkString brk
         } else if(ast.isNull(j)) "null"
@@ -105,8 +102,8 @@ class Json(val $root: VCell, val $path: Vector[Either[Int, String]] = Vector())(
     val $ast: JsonAst) extends JsonDataType[Json, JsonAst] {
   def $wrap(any: Any, path: Vector[Either[Int, String]]): Json = new Json(VCell(any), path)
   def $deref(path: Vector[Either[Int, String]]): Json = new Json($root, path)
-  def format: String = Json.format(Some($normalize), 0, $ast, " ", "\n")
-  def serialize: String = Json.format(Some($normalize), 0, $ast, "", "")
+  def format: String = Json.format($normalize, 0, $ast, " ", "\n")
+  def serialize: String = Json.format($normalize, 0, $ast, "", "")
   def $accessInnerMap(k: String): Any = $ast.dereferenceObject($root.value, k)
 }
 
@@ -116,7 +113,7 @@ class JsonBuffer(val $root: VCell, val $path: Vector[Either[Int, String]] = Vect
     MutableDataType[JsonBuffer, JsonBufferAst] {
   def $wrap(any: Any, path: Vector[Either[Int, String]]): JsonBuffer = new JsonBuffer(VCell(any), path)
   def $deref(path: Vector[Either[Int, String]]): JsonBuffer = new JsonBuffer($root, path)
-  def format: String = Json.format(Some($normalize), 0, $ast, " ", "\n")
-  def serialize: String = Json.format(Some($normalize), 0, $ast, "", "")
+  def format: String = Json.format($normalize, 0, $ast, " ", "\n")
+  def serialize: String = Json.format($normalize, 0, $ast, "", "")
   def $accessInnerMap(k: String): Any = $ast.dereferenceObject($root.value, k)
 }
