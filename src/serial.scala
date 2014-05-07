@@ -71,5 +71,46 @@ trait Serializers {
       Serializer[Map[String, T], Json] = new Serializer[Map[String, T], Json] {
       def serialize(m: Map[String, T]) = ast.fromObject(m.mapValues(ser.serialize))
     }
+  
+  implicit def identitySerializer2(implicit ast: JsonBufferAst): Serializer[JsonBuffer, JsonBuffer] =
+    new Serializer[JsonBuffer, JsonBuffer] { def serialize(j: JsonBuffer) = j.$root.value }
+
+  implicit def intSerializer2(implicit ast: JsonBufferAst): Serializer[Int, JsonBuffer] =
+    new Serializer[Int, JsonBuffer] { def serialize(i: Int) = ast.fromDouble(i.toDouble) }
+
+  implicit def booleanSerializer2(implicit ast: JsonBufferAst): Serializer[Boolean, JsonBuffer] =
+    new Serializer[Boolean, JsonBuffer] { def serialize(b: Boolean) = ast.fromBoolean(b) }
+
+  implicit def stringSerializer2(implicit ast: JsonBufferAst): Serializer[String, JsonBuffer] =
+    new Serializer[String, JsonBuffer] { def serialize(s: String) = ast.fromString(s) }
+
+  implicit def floatSerializer2(implicit ast: JsonBufferAst): Serializer[Float, JsonBuffer] =
+    new Serializer[Float, JsonBuffer] { def serialize(f: Float) = ast.fromDouble(f.toDouble) }
+
+  implicit def doubleSerializer2(implicit ast: JsonBufferAst): Serializer[Double, JsonBuffer] =
+    new Serializer[Double, JsonBuffer] { def serialize(d: Double) = ast.fromDouble(d) }
+
+  implicit def longSerializer2(implicit ast: JsonBufferAst): Serializer[Long, JsonBuffer] =
+    new Serializer[Long, JsonBuffer] { def serialize(l: Long) = ast.fromDouble(l.toDouble) }
+
+  implicit def shortSerializer2(implicit ast: JsonBufferAst): Serializer[Short, JsonBuffer] =
+    new Serializer[Short, JsonBuffer] { def serialize(s: Short) = ast.fromDouble(s.toDouble) }
+
+  implicit def byteSerializer2(implicit ast: JsonBufferAst): Serializer[Byte, JsonBuffer] =
+    new Serializer[Byte, JsonBuffer] { def serialize(b: Byte) = ast.fromDouble(b.toDouble) }
+
+  implicit def listSerializer2[T](implicit ast: JsonBufferAst, ser: Serializer[T, JsonBuffer]):
+      Serializer[List[T], JsonBuffer] = new Serializer[List[T], JsonBuffer] {
+    def serialize(xs: List[T]) = ast.fromArray(xs.map(ser.serialize)) }
+
+  implicit def genSeqSerializer2[T](implicit ast: JsonBufferAst, ser: Serializer[T, JsonBuffer]):
+      Serializer[Traversable[T], JsonBuffer] = new Serializer[Traversable[T], JsonBuffer] {
+      def serialize(xs: Traversable[T]) = ast.fromArray(xs.map(ser.serialize).to[List])
+    }
+
+  implicit def mapSerializer2[T](implicit ast: JsonBufferAst, ser: Serializer[T, JsonBuffer]):
+      Serializer[Map[String, T], JsonBuffer] = new Serializer[Map[String, T], JsonBuffer] {
+      def serialize(m: Map[String, T]) = ast.fromObject(m.mapValues(ser.serialize))
+    }
 }
 
