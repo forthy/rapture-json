@@ -262,7 +262,11 @@ object Jsonizer {
     new Jsonizer[Map[String, T]] {
       def jsonize(m: Map[String, T]) = parser.fromObject(m.mapValues(implicitly[Jsonizer[T]].jsonize))
     }
-  
+
+  implicit val jsonJsonizer: Jsonizer[Json] = new Jsonizer[Json] {
+    def jsonize(j: Json) = j.root(0)
+  }
+
 }
 
 @implicitNotFound("cannot serialize type ${T} to JSON.")
