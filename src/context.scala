@@ -51,10 +51,10 @@ class JsonStrings(sc: StringContext)(implicit parser: JsonParser[String])
         val PlaceholderNumber = (placeholder+"([0-9]+)"+placeholder).r
         val next = new Counter(0)
         val txt = sc.parts.reduceLeft(_ + s""""${placeholder}${next()}${placeholder}" """ + _)
-        val paths: Array[Vector[String]] =
-          Array.fill[Vector[String]](sc.parts.length - 1)(Vector())
+        val paths: Array[Vector[Either[Int, String]]] =
+          Array.fill[Vector[Either[Int, String]]](sc.parts.length - 1)(Vector())
         
-        def extract(any: Any, path: Vector[String]): Unit = {
+        def extract(any: Any, path: Vector[Either[Int, String]]): Unit = {
           import strategy.throwExceptions
           if(parser.isNumber(any)) {
             if(json.extract(path).as[Double](Extractor.doubleExtractor, ?) !=
@@ -69,14 +69,21 @@ class JsonStrings(sc: StringContext)(implicit parser: JsonParser[String])
             parser.getObject(any) foreach { case (k, v) =>
               if(parser.isString(v)) parser.getString(v) match {
                 case PlaceholderNumber(n) =>
-                  paths(n.toInt) = path :+ k
-                case _ => extract(v, path :+ k)
-              } else extract(v, path :+ k)
+                  paths(n.toInt) = path :+ Right(k)
+                case _ => extract(v, path :+ Right(k))
+              } else extract(v, path :+ Right(k))
             }
-          } else throw new Exception("Can't match on arrays.")
+          } else {
+            parser.getArray(any).zipWithIndex foreach { case (e, i) =>
+              if(parser.isString(e)) parser.getString(e) match {
+                case PlaceholderNumber(n) =>
+                  paths(n.toInt) = path :+ Left(i)
+                case _ => extract(e, path :+ Left(i))
+              } else extract(e, path :+ Left(i))
+            }
+          }
         }
             
-
         extract(parser.parse(txt).get, Vector())
 
         val extracts = paths.map(json.extract)

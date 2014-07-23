@@ -130,8 +130,11 @@ trait DataType[+T <: DataType[T, ParserType], ParserType[S] <: DataParser[S]] ex
   def selectDynamic(key: String): T =
     companion.constructRaw(root, Right(key) +: path)
 
-  def extract(sp: Vector[String]): DataType[T, ParserType] =
-    if(sp.isEmpty) this else selectDynamic(sp.head).extract(sp.tail)
+  def extract(sp: Vector[Either[Int, String]]): DataType[T, ParserType] =
+    if(sp.isEmpty) this else sp.head match {
+      case Left(i) => apply(i).extract(sp.tail)
+      case Right(s) => selectDynamic(s).extract(sp.tail)
+    }
   
   override def toString = format
   
