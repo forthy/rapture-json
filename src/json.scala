@@ -31,9 +31,6 @@ import language.higherKinds
 trait JsonDataCompanion[+Type <: JsonDataType[Type, AstType],
     AstType <: JsonAst] extends DataCompanion[Type, AstType] {
 
-  def format(json: JsonDataType[_, AstType]): String = doFormat(json.$normalize, 0, json.$ast, " ", "\n")
-  def serialize(json: JsonDataType[_, AstType]): String = doFormat(json.$normalize, 0, json.$ast, "", "")
-  
   /** Formats the JSON object for multi-line readability. */
   private[json] def doFormat(json: Any, ln: Int, ast: AstType, pad: String = " ",
       brk: String = "\n"): String = {
@@ -108,7 +105,7 @@ class Json(val $root: VCell, val $path: Vector[Either[Int, String]] = Vector())(
   def $deref(path: Vector[Either[Int, String]]): Json = new Json($root, path)
   def $accessInnerMap(k: String): Any = $ast.dereferenceObject($root.value, k)
 
-  override def toString = Json.serialize(this)
+  override def toString = Json.format(this)(formatters.defaultJsonFormatter($ast))
 }
 
 class JsonBuffer(val $root: VCell, val $path: Vector[Either[Int, String]] = Vector())
@@ -119,5 +116,5 @@ class JsonBuffer(val $root: VCell, val $path: Vector[Either[Int, String]] = Vect
   def $deref(path: Vector[Either[Int, String]]): JsonBuffer = new JsonBuffer($root, path)
   def $accessInnerMap(k: String): Any = $ast.dereferenceObject($root.value, k)
   
-  override def toString = JsonBuffer.serialize(this)
+  override def toString = JsonBuffer.format(this)(formatters.defaultJsonFormatter($ast))
 }

@@ -114,3 +114,49 @@ trait Serializers {
     }
 }
 
+class LowPriorityFormatters {
+  /** Formats the JSON object for multi-line readability. */
+  protected def generalFormatter[Ast <: JsonAst](json: Any, ln: Int, ast: Ast, pad: String = " ",
+      brk: String = "\n"): String = {
+    val indent = pad*ln
+    json match {
+      case j =>
+        if(ast.isString(j)) {
+          "\""+ast.getString(j).replaceAll("\\\\", "\\\\\\\\").replaceAll("\r",
+              "\\\\r").replaceAll("\n", "\\\\n").replaceAll("\"", "\\\\\"")+"\""
+        } else if(ast.isBoolean(j)) {
+          if(ast.getBoolean(j)) "true" else "false"
+        } else if(ast.isNumber(j)) {
+          val n = ast.getDouble(j)
+          if(n == n.floor) n.toInt.toString else n.toString
+        } else if(ast.isArray(j)) {
+          val arr = ast.getArray(j)
+          if(arr.isEmpty) "[]" else List("[", arr map { v =>
+            s"${indent}${pad}${generalFormatter(v, ln + 1, ast, pad, brk)}"
+          } mkString s",${brk}", s"${indent}]") mkString brk
+        } else if(ast.isObject(j)) {
+          val keys = ast.getKeys(j)
+          if(keys.isEmpty) "{}" else List("{", keys map { k =>
+            val inner = ast.dereferenceObject(j, k)
+            s"""${indent}${pad}"${k}":${pad}${generalFormatter(inner, ln + 1, ast, pad, brk)}"""
+          } mkString s",${brk}", s"${indent}}") mkString brk
+        } else if(ast.isNull(j)) "null"
+        else if(j == DataCompanion.Empty) "empty"
+        else "undefined"
+    }
+  }
+  
+  implicit def humanReadable[Ast <: JsonAst](implicit ast: Ast) = new Formatter[JsonBufferAst] {
+    type Out = String
+    def format(json: Any): String = generalFormatter(json, 0, ast, " ", "\n")  
+  }
+
+}
+
+object formatters extends LowPriorityFormatters {
+  implicit def compact[Ast <: JsonAst](implicit ast: Ast) = new Formatter[JsonBufferAst] {
+    type Out = String
+    def format(json: Any): String = generalFormatter(json, 0, ast, "", "")
+  }
+}
+
