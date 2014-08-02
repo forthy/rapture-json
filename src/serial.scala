@@ -71,7 +71,13 @@ trait Serializers {
       Serializer[Map[String, T], Json] = new Serializer[Map[String, T], Json] {
       def serialize(m: Map[String, T]) = ast.fromObject(m.mapValues(ser.serialize))
     }
-  
+ 
+  implicit def jsonSerializer(implicit ast: JsonBufferAst): Serializer[Json, JsonBuffer] =
+    new Serializer[Json, JsonBuffer] { def serialize(j: Json) = j.$root.value }
+
+  implicit def jsonBufferSerializer(implicit ast: JsonAst): Serializer[JsonBuffer, Json] =
+    new Serializer[JsonBuffer, Json] { def serialize(j: JsonBuffer) = j.$root.value }
+
   implicit def identitySerializer2(implicit ast: JsonBufferAst): Serializer[JsonBuffer, JsonBuffer] =
     new Serializer[JsonBuffer, JsonBuffer] { def serialize(j: JsonBuffer) = j.$root.value }
 
