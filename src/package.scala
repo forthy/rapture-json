@@ -42,5 +42,8 @@ object `package` extends Serializers with Extractors {
   
   implicit def jsonStrings(sc: StringContext)(implicit parser: Parser[String, JsonAst]) =
     new JsonStrings(sc)
+  
+  implicit def jsonBufferStrings(sc: StringContext)(implicit parser: Parser[String, JsonBufferAst]) =
+    new JsonBufferStrings(sc)
 }
 

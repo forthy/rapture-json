@@ -30,3 +30,8 @@ class JsonStrings[R <: JsonAst](sc: StringContext)(implicit parser: Parser[Strin
     extends {
   object json extends DataContext(Json, sc, parser)
 }
+
+class JsonBufferStrings[R <: JsonBufferAst](sc: StringContext)(implicit parser: Parser[String, R])
+    extends {
+  object jsonBuffer extends DataContext(JsonBuffer, sc, parser)
+}
