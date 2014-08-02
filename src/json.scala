@@ -105,7 +105,7 @@ class Json(val $root: VCell, val $path: Vector[Either[Int, String]] = Vector())(
   def $deref(path: Vector[Either[Int, String]]): Json = new Json($root, path)
   def $accessInnerMap(k: String): Any = $ast.dereferenceObject($root.value, k)
 
-  override def toString = Json.format(this)(formatters.defaultJsonFormatter($ast))
+  override def toString = Json.format(this)(formatters.humanReadable($ast))
 }
 
 class JsonBuffer(val $root: VCell, val $path: Vector[Either[Int, String]] = Vector())
@@ -116,5 +116,5 @@ class JsonBuffer(val $root: VCell, val $path: Vector[Either[Int, String]] = Vect
   def $deref(path: Vector[Either[Int, String]]): JsonBuffer = new JsonBuffer($root, path)
   def $accessInnerMap(k: String): Any = $ast.dereferenceObject($root.value, k)
   
-  override def toString = JsonBuffer.format(this)(formatters.defaultJsonFormatter($ast))
+  override def toString = JsonBuffer.format(this)(formatters.humanReadable($ast))
 }

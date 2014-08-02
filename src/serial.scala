@@ -146,7 +146,7 @@ class LowPriorityFormatters {
     }
   }
   
-  implicit def humanReadable[Ast <: JsonAst](implicit ast: Ast) = new Formatter[JsonBufferAst] {
+  implicit def humanReadable[Ast <: JsonAst](implicit ast: Ast): Formatter[Ast] { type Out = String } = new Formatter[Ast] {
     type Out = String
     def format(json: Any): String = generalFormatter(json, 0, ast, " ", "\n")  
   }
@@ -154,7 +154,7 @@ class LowPriorityFormatters {
 }
 
 object formatters extends LowPriorityFormatters {
-  implicit def compact[Ast <: JsonAst](implicit ast: Ast) = new Formatter[JsonBufferAst] {
+  implicit def compact[Ast <: JsonAst](implicit ast: Ast): Formatter[Ast] { type Out = String } = new Formatter[Ast] {
     type Out = String
     def format(json: Any): String = generalFormatter(json, 0, ast, "", "")
   }
