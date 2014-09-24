@@ -1,6 +1,6 @@
 /**********************************************************************************************\
 * Rapture JSON Library                                                                         *
-* Version 0.9.0                                                                                *
+* Version 0.10.1                                                                               *
 *                                                                                              *
 * The primary distribution site is                                                             *
 *                                                                                              *
@@ -77,7 +77,9 @@ object JsonBuffer extends JsonDataCompanion[JsonBuffer, JsonBufferAst] {
 object Json extends JsonDataCompanion[Json, JsonAst] {
   def construct(any: VCell, path: Vector[Either[Int, String]])(implicit ast:
       JsonAst): Json = new Json(any, path)
-  
+
+  def extractor[T](implicit ext: Extractor[T, Json]) = ext
+
   def convert(json: Json)(implicit ast: JsonAst): Json = {
     val oldAst = json.$ast
     
