@@ -1,6 +1,6 @@
 /**********************************************************************************************\
 * Rapture JSON Library                                                                         *
-* Version 0.9.0                                                                                *
+* Version 1.0.0                                                                                *
 *                                                                                              *
 * The primary distribution site is                                                             *
 *                                                                                              *
@@ -18,23 +18,39 @@
 * either express or implied. See the License for the specific language governing permissions   *
 * and limitations under the License.                                                           *
 \**********************************************************************************************/
+
 package rapture.json
 
-object DataGetException {
-  def stringifyPath(path: Vector[Either[Int, String]]) = path.reverse map {
-    case Left(i) => s"($i)"
-    case Right(s) => s".$s"
-  } mkString ""
+import rapture.core._
+import rapture.data._
+
+import scala.reflect.macros._
+import scala.annotation._
+
+import language.experimental.macros
+import language.higherKinds
+
+trait Extractors {
+
+  implicit def identityExtractor[D]: Extractor[D, D] = BasicExtractor[D, D](identity)
+
+  implicit val stringExtractor: Extractor[String, Json] = BasicExtractor[String, Json](x =>
+      x.$ast.getString(x.$root.value))
+
+  implicit val doubleExtractor: Extractor[Double, Json] = BasicExtractor[Double, Json](x =>
+      x.$ast.getDouble(x.$root.value))
+
+  implicit val booleanExtractor: Extractor[Boolean, Json] = BasicExtractor[Boolean, Json](x =>
+      x.$ast.getBoolean(x.$root.value))
+
+  implicit val stringExtractor2: Extractor[String, JsonBuffer] =
+    BasicExtractor[String, JsonBuffer](x => x.$ast.getString(x.$root.value))
+
+  implicit val doubleExtractor2: Extractor[Double, JsonBuffer] = BasicExtractor[Double, JsonBuffer](x =>
+      x.$ast.getDouble(x.$root.value))
+
+  implicit val booleanExtractor2: Extractor[Boolean, JsonBuffer] = BasicExtractor[Boolean, JsonBuffer](x =>
+      x.$ast.getBoolean(x.$root.value))
 }
-
-sealed class DataGetException(msg: String) extends RuntimeException(msg)
-
-case class TypeMismatchException(foundType: JsonTypes.JsonType,
-    expectedType: JsonTypes.JsonType, path: Vector[Either[Int, String]]) extends
-    DataGetException(s"Type mismatch: Expected ${expectedType.name} but found "+
-    s"${foundType.name} at json${DataGetException.stringifyPath(path)}")
-
-case class MissingValueException(path: Vector[Either[Int, String]])
-  extends DataGetException(s"Missing value: json${DataGetException.stringifyPath(path)}")
 
 
