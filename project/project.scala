@@ -8,7 +8,9 @@ object project extends ProjectSettings {
     "data" -> "1.0.0"
   )
   
-  def thirdPartyDependencies = Nil
+  def thirdPartyDependencies = Seq(
+    ("org.scala-lang.modules", "scala-parser-combinators_2.11", "1.0.2")
+  )
 
   def imports = Seq(
     "rapture.core._",
