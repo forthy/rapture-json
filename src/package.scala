@@ -1,6 +1,6 @@
 /**********************************************************************************************\
 * Rapture JSON Library                                                                         *
-* Version 0.9.0                                                                                *
+* Version 1.0.0                                                                                *
 *                                                                                              *
 * The primary distribution site is                                                             *
 *                                                                                              *
@@ -21,20 +21,29 @@
 package rapture.json
 
 import rapture.core._
+import rapture.data._
 
 import language.higherKinds
 import language.experimental.macros
 
-object `package` {
+object `package` extends Serializers with Extractors {
 
-  implicit def extractorMacro[T <: Product]: Extractor[T] =
-    macro Macros.extractorMacro[T]
+  implicit def jsonExtractorMacro[T <: Product]: Extractor[T, Json] =
+    macro JsonMacros.jsonExtractorMacro[T]
   
-  implicit def jsonizerMacro[T <: Product](implicit parser: JsonParser[_]): Jsonizer[T] =
-    macro Macros.jsonizerMacro[T]
+  implicit def jsonBufferExtractorMacro[T <: Product]: Extractor[T, JsonBuffer] =
+    macro JsonMacros.jsonBufferExtractorMacro[T]
   
-  implicit def jsonStrings(sc: StringContext)(implicit parser: JsonParser[String]) =
+  implicit def jsonSerializerMacro[T <: Product](implicit ast: JsonAst): Serializer[T, Json] =
+    macro JsonMacros.jsonSerializerMacro[T]
+  
+  implicit def jsonBufferSerializerMacro[T <: Product](implicit ast: JsonBufferAst): Serializer[T, JsonBuffer] =
+    macro JsonMacros.jsonBufferSerializerMacro[T]
+  
+  implicit def jsonStrings(sc: StringContext)(implicit parser: Parser[String, JsonAst]) =
     new JsonStrings(sc)
-
+  
+  implicit def jsonBufferStrings(sc: StringContext)(implicit parser: Parser[String, JsonBufferAst]) =
+    new JsonBufferStrings(sc)
 }
 
