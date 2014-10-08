@@ -6,12 +6,13 @@ Rapture JSON is a comprehensive library providing support for working with JSON 
 
 ### Status
 
-Rapture JSON is *managed*. This means that the API is expected to continue to evolve, but all
-API changes will be documented with instructions on how to upgrade.
+Rapture JSON is now *stable*. This means that the API represents a useful set
+of features, and is unlikely to change significantly in subsequent releases.
+All API changes will be documented with instructions on how to upgrade.
 
 ### Availability
 
-Rapture JSON 0.10.0 is available under the Apache 2.0 License from Maven Central with group ID
+Rapture JSON 1.0.0 is available under the Apache 2.0 License from Maven Central with group ID
 `com.propensive` and artifact ID `rapture-json_2.10`.
 
 #### SBT
@@ -65,13 +66,30 @@ choices.
 
 The following backends are available:
 
- - Scala standard library JSON (Scala 2.10 only)
- - Jawn
- - Argonaut
- - JSON4S
- - Jackson
+ - Argonaut (`argonaut`)
+ - Jackson (`jackson`)
+ - Jawn (`jawn`)
+ - JSON4S (`json4s`)
+ - Lift (`lift` -- Scala 2.10 only)
+ - Scala standard library JSON (`scalaJson`)
+ - Spray (`spray`)
 
-Work is ongoing to make Lift JSON, Spray JSON and Play JSON available too.
+Work is ongoing to make Play JSON available too.
+
+To make use of a particular backend, ensure that you include a dependency on
+the `rapture-json-<backend>` project, where `<backend>` is one of the backends
+above.
+
+For example, in SBT include:
+
+```scala
+libraryDependencies ++= Seq(
+  "com.propensive" %% "rapture-json" % "1.0.0",
+  "com.propensive" %% "rapture-json-jawn" % "1.0.0"
+)
+```
+
+In the source code, you should import `rapture.json.jsonBackends.<backend>._`.
 
 ## The Json type
 
@@ -86,7 +104,7 @@ Instances of `Json` consist of three things:
  - a reference to the parser used to create, modify and read the JSON tree
 
 Although using `Json` objects will seem very intuitive, it is important to understand the
-purpose of each of these.
+purpose of this state.
 
 ```json
 {
@@ -145,24 +163,21 @@ string `"yellow"` as follows:
 json.fruits(1).color
 ```
 
-Remember, this is just creating a pointed to the `"yellow"` value; it's not been accessed yet.
-To extract a value from a `Json` value, the `as` method is used. `as` takes a single type
-parameter, and is the single point at which a JSON type-mismatch or missing-value exception can
-occur.
+Remember, this is just creating a pointer into the `"yellow"` value; it's not
+been accessed yet.  To extract a value from a `Json` value, the `as` method is
+used. `as` takes a single type parameter, and is the single point at which a
+JSON type-mismatch or missing-value exception can occur.
 
 ```scala
 json.fruits(1).color.as[String]
 ```
 
-Rapture JSON uses Rapture Core's return-type strategies on the `as` method, thus allowing the
+Rapture JSON uses Rapture Core's modes on the `as` method, thus allowing failure cases to be handled using the preferred strategy, for example by throwing an exception or returning a `Try`.
 
 
 Note that calling `toString`, as happens automatically after every evaluation in the Scala REPL,
 *will* cause the AST to be accessed, but any errors will be suppressed, and the `toString`
-method will return `undefined`.
-
-
-
+method will return the string `"undefined"`.
 
 ### Pattern matching on JSON
 
