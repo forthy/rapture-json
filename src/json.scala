@@ -111,6 +111,12 @@ class Json(val $root: VCell, val $path: Vector[Either[Int, String]] = Vector())(
     try Json.format(this)(formatters.humanReadable($ast)) catch {
       case e: Exception => "undefined"
     }
+
+  def $extract(sp: Vector[Either[Int, String]]): Json =
+    if(sp.isEmpty) this else sp match {
+      case Left(i) +: tail => apply(i).$extract(tail)
+      case Right(e) +: tail => selectDynamic(e).$extract(tail)
+    }
 }
 
 class JsonBuffer(val $root: VCell, val $path: Vector[Either[Int, String]] = Vector())
@@ -121,6 +127,11 @@ class JsonBuffer(val $root: VCell, val $path: Vector[Either[Int, String]] = Vect
   def $deref(path: Vector[Either[Int, String]]): JsonBuffer = new JsonBuffer($root, path)
   def $accessInnerMap(k: String): Any = $ast.dereferenceObject($root.value, k)
   
+  def $extract(sp: Vector[Either[Int, String]]): JsonBuffer =
+    if(sp.isEmpty) this else sp match {
+      case Left(i) +: tail => apply(i).$extract(tail)
+      case Right(e) +: tail => selectDynamic(e).$extract(tail)
+    }
   override def toString =
     try JsonBuffer.format(this)(formatters.humanReadable($ast)) catch {
       case e: Exception => "undefined"
