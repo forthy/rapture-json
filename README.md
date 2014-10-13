@@ -12,7 +12,7 @@ All API changes will be documented with instructions on how to upgrade.
 
 ### Availability
 
-Rapture JSON 1.0.0 is available under the Apache 2.0 License from Maven Central with group ID
+Rapture JSON 1.0.1 is available under the Apache 2.0 License from Maven Central with group ID
 `com.propensive` and artifact ID `rapture-json_2.10`.
 
 #### SBT
@@ -21,7 +21,7 @@ You can include Rapture JSON as a dependency in your own project by adding the f
 dependency to your build file:
 
 ```scala
-libraryDependencies ++= Seq("com.propensive" %% "rapture-json" % "1.0.0")
+libraryDependencies ++= Seq("com.propensive" %% "rapture-json" % "1.0.1")
 ```
 
 #### Maven
@@ -32,7 +32,7 @@ If you use Maven, include the following dependency:
 <dependency>
   <groupId>com.propensive</groupId>
   <artifactId>rapture-json_2.10</artifactId>
-  <version>1.0.0<version>
+  <version>1.0.1<version>
 </dependency>
 ```
 
@@ -84,8 +84,8 @@ For example, in SBT include:
 
 ```scala
 libraryDependencies ++= Seq(
-  "com.propensive" %% "rapture-json" % "1.0.0",
-  "com.propensive" %% "rapture-json-jawn" % "1.0.0"
+  "com.propensive" %% "rapture-json" % "1.0.1",
+  "com.propensive" %% "rapture-json-jawn" % "1.0.1"
 )
 ```
 
