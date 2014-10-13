@@ -105,7 +105,6 @@ class Json(val $root: VCell, val $path: Vector[Either[Int, String]] = Vector())(
     val $ast: JsonAst) extends JsonDataType[Json, JsonAst] with DynamicData[Json, JsonAst] {
   def $wrap(any: Any, path: Vector[Either[Int, String]]): Json = new Json(VCell(any), path)
   def $deref(path: Vector[Either[Int, String]]): Json = new Json($root, path)
-  def $accessInnerMap(k: String): Any = $ast.dereferenceObject($root.value, k)
 
   override def toString =
     try Json.format(this)(formatters.humanReadable($ast)) catch {
@@ -125,7 +124,6 @@ class JsonBuffer(val $root: VCell, val $path: Vector[Either[Int, String]] = Vect
     MutableDataType[JsonBuffer, JsonBufferAst] with DynamicData[JsonBuffer, JsonBufferAst] {
   def $wrap(any: Any, path: Vector[Either[Int, String]]): JsonBuffer = new JsonBuffer(VCell(any), path)
   def $deref(path: Vector[Either[Int, String]]): JsonBuffer = new JsonBuffer($root, path)
-  def $accessInnerMap(k: String): Any = $ast.dereferenceObject($root.value, k)
   
   def $extract(sp: Vector[Either[Int, String]]): JsonBuffer =
     if(sp.isEmpty) this else sp match {
