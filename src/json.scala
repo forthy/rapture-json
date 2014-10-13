@@ -102,25 +102,34 @@ object Json extends JsonDataCompanion[Json, JsonAst] {
 
 /** Represents some parsed JSON. */
 class Json(val $root: VCell, val $path: Vector[Either[Int, String]] = Vector())(implicit
-    val $ast: JsonAst) extends JsonDataType[Json, JsonAst] {
+    val $ast: JsonAst) extends JsonDataType[Json, JsonAst] with DynamicData[Json, JsonAst] {
   def $wrap(any: Any, path: Vector[Either[Int, String]]): Json = new Json(VCell(any), path)
   def $deref(path: Vector[Either[Int, String]]): Json = new Json($root, path)
-  def $accessInnerMap(k: String): Any = $ast.dereferenceObject($root.value, k)
 
   override def toString =
     try Json.format(this)(formatters.humanReadable($ast)) catch {
       case e: Exception => "undefined"
+    }
+
+  def $extract(sp: Vector[Either[Int, String]]): Json =
+    if(sp.isEmpty) this else sp match {
+      case Left(i) +: tail => apply(i).$extract(tail)
+      case Right(e) +: tail => selectDynamic(e).$extract(tail)
     }
 }
 
 class JsonBuffer(val $root: VCell, val $path: Vector[Either[Int, String]] = Vector())
     (implicit val $ast: JsonBufferAst) extends
     JsonDataType[JsonBuffer, JsonBufferAst] with
-    MutableDataType[JsonBuffer, JsonBufferAst] {
+    MutableDataType[JsonBuffer, JsonBufferAst] with DynamicData[JsonBuffer, JsonBufferAst] {
   def $wrap(any: Any, path: Vector[Either[Int, String]]): JsonBuffer = new JsonBuffer(VCell(any), path)
   def $deref(path: Vector[Either[Int, String]]): JsonBuffer = new JsonBuffer($root, path)
-  def $accessInnerMap(k: String): Any = $ast.dereferenceObject($root.value, k)
   
+  def $extract(sp: Vector[Either[Int, String]]): JsonBuffer =
+    if(sp.isEmpty) this else sp match {
+      case Left(i) +: tail => apply(i).$extract(tail)
+      case Right(e) +: tail => selectDynamic(e).$extract(tail)
+    }
   override def toString =
     try JsonBuffer.format(this)(formatters.humanReadable($ast)) catch {
       case e: Exception => "undefined"
