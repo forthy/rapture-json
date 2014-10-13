@@ -28,6 +28,10 @@ import language.experimental.macros
 
 object `package` extends Serializers with Extractors {
 
+  implicit class DynamicWorkaround(json: Json) {
+    def self: Json = json.selectDynamic("json")
+  }
+
   implicit def jsonExtractorMacro[T <: Product]: Extractor[T, Json] =
     macro JsonMacros.jsonExtractorMacro[T]
   
