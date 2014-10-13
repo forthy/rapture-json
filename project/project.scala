@@ -1,6 +1,6 @@
 object project extends ProjectSettings {
   def scalaVersion = "2.10.4"
-  def version = "1.0.0"
+  def version = "1.0.1"
   def name = "json"
   def description = "Rapture JSON is a comprehensive library providing support for working with JSON in Scala"
   
