@@ -21,6 +21,23 @@ You can include Rapture JSON as a dependency in your own project by adding the f
 dependency to your build file:
 
 ```scala
+libraryDependencies ++= Seq("com.propensive" %% "rapture-json-[backend]" % "1.0.1")
+```
+
+where `[backend]` is one of the following JSON backends:
+
+ - Argonaut (`argonaut`)
+ - Jackson (`jackson`)
+ - Jawn (`jawn`)
+ - JSON4S (`json4s`)
+ - Lift JSON (`lift` -- Scala 2.10 only)
+ - Spray (`spray`)
+
+You can also use Rapture JSON with the JSON parser built into Scala 2.10 with
+the following dependency, though this is not recommended due to the poor
+performance characteristics of this parser.
+
+```scala
 libraryDependencies ++= Seq("com.propensive" %% "rapture-json" % "1.0.1")
 ```
 
@@ -31,20 +48,12 @@ If you use Maven, include the following dependency:
 ```xml
 <dependency>
   <groupId>com.propensive</groupId>
-<<<<<<< HEAD
-  <artifactId>rapture-json_2.11</artifactId>
+  <artifactId>rapture-json-[backend]_2.11</artifactId>
   <version>1.0.1<version>
-=======
-  <artifactId>rapture-json_2.10</artifactId>
-  <version>1.0.1<version>
->>>>>>> master
 </dependency>
 ```
 
-#### Download
-
-You can download Rapture JSON directly from the [Rapture website](http://rapture.io/)
-Rapture JSON depends on Scala 2.11 and Rapture Core, but has no other dependencies.
+where [backend] is one of the backends listed above.
 
 #### Building from source
 
@@ -56,18 +65,21 @@ cd rapture-json
 sbt package
 ```
 
-If the compilation is successful, the compiled JAR file should be found in target/scala-2.11
+If the compilation is successful, the compiled JAR file should be found in the
+directory for the appropriate Scala version in the `target` directory.
 
 ## JSON Representation
 
-Rapture JSON is designed to be agnostic about the JSON parser and choice of AST representation
-used throughout the library. This means that a choice of JSON backend must be made in order to
-use Rapture JSON. Whilst different backend libraries provide different features, all features of
-Rapture JSON are available with every backend.
+Rapture JSON is designed to be agnostic about the JSON parser and choice of AST
+representation used throughout the library. This means that a choice of JSON
+backend must be made in order to use Rapture JSON. Whilst different backend
+libraries provide different features, all features of Rapture JSON are
+available with every backend (with the exception of Jackson, which does not yet
+support mutable JSON operations).
 
-The choice of backend should therefore depend on other characteristics such as performance,
-memory usage, required dependencies, integration with existing libraries, licensing and policy
-choices.
+The choice of backend should therefore depend on other characteristics such as
+performance, memory usage, required dependencies, integration with existing
+libraries, licensing and policy choices.
 
 The following backends are available:
 
@@ -79,20 +91,7 @@ The following backends are available:
  - Scala standard library JSON (`scalaJson`)
  - Spray (`spray`)
 
-Work is ongoing to make Play JSON available too.
-
-To make use of a particular backend, ensure that you include a dependency on
-the `rapture-json-<backend>` project, where `<backend>` is one of the backends
-above.
-
-For example, in SBT include:
-
-```scala
-libraryDependencies ++= Seq(
-  "com.propensive" %% "rapture-json" % "1.0.1",
-  "com.propensive" %% "rapture-json-jawn" % "1.0.1"
-)
-```
+Work is ongoing to make Play JSON available too. It is also possible to integrate with other JSON backends, though this is not covered by this document. Anyone interested should look at the existing integration type classes, and contact the Rapture mailing list.
 
 In the source code, you should import `rapture.json.jsonBackends.<backend>._`.
 
@@ -108,8 +107,8 @@ Instances of `Json` consist of three things:
  - a path into a node within the JSON tree
  - a reference to the parser used to create, modify and read the JSON tree
 
-Although using `Json` objects will seem very intuitive, it is important to understand the
-purpose of this state.
+Although using `Json` objects should seem very intuitive, it is important to
+understand the purpose of this state.
 
 ```json
 {
@@ -126,34 +125,36 @@ purpose of this state.
 }
 ```
 
-If we were to parse the above JSON source, we should get a tree consisting of an object
-containing an array under the key "fruits", with two elements, each of which is an object
-containing two fields, "name" and "color", both of hich are strings. Given this tree, we can
-refer to an element within with a path of strings for indexing JSON objects, and integers for
-indexing JSON arrays, for example, `fruits / 1 / name`, which would refer to the string
-`"banana"`.
+If we were to parse the above JSON source, we should get a tree consisting of
+an object containing an array under the key "fruits", with two elements, each
+of which is an object containing two fields, "name" and "color", both of which
+are strings. Given this tree, we can refer to an element within with a path of
+strings for indexing JSON objects, and integers for indexing JSON arrays, for
+example, `fruits / 0 / name`, which would refer to the string `"apple"`.
 
-We could also look into the same tree with the path `fruits / 3 / mass`, though this wouldn't
-exist on account of there being only two elements in the `fruits` list, but we would not know
-this until we attempted it.
+We could also look into the same tree with the path `fruits / 3 / mass`, though
+this wouldn't exist on account of there being only two elements in the `fruits`
+list, but we would not know this until we attempted it at runtime.
 
-A `Json` instance represents both the JSON tree, and a lazily-evaluated path into that tree,
-which may or may not point to a value. If we assume the full JSON tree is a starting point (most
-likely originating from being parsed from source), `Json` instances can be created which hold
-the same reference to the original tree, but point -- by means of a path -- to any subtree of
-the original, without the performance cost of navigating the tree, or the requirement to safely
-handle missing-value or type-mismatch errors which arise because the path attempts to access a
-value which isn't available.
+A `Json` instance represents both the JSON tree, and a lazily-evaluated path
+into that tree, which may or may not point to a value. If we assume the full
+JSON tree is a starting point (most likely originating from being parsed from
+source), `Json` instances can be created which hold the same reference to the
+original tree, but point -- by means of a path -- to any subtree of the
+original, without the performance cost of navigating the tree, or the
+requirement to safely handle missing-value or type-mismatch errors which arise
+because the path attempts to access a value which isn't available.
 
-At some later point, if the JSON is to yield some useful data which we can do interesting things
-with, we will need to perform the access, and assign a Scala type to it, as it passes from the
-dynamic to the static world. It is at this point that all access failures will arise, so by
-deferring them to a single point, they can be handled just once.
+At some later point, if the JSON is to yield some useful data which we can do
+interesting things with, we will need to perform the access, and assign a Scala
+type to it, as it passes from the dynamic to the static world. It is at this
+point that all access failures will arise, so by deferring them to a single
+point, they can be handled just once.
 
-Additionally, every `Json` instance stores a reference to the backend which was used to create
-it, and which will be used to access it. As Rapture JSON permits multiple different parsers to
-be used alongside each other, it is important that the AST within each `Json` instance is
-handled using the right backend.
+Additionally, every `Json` instance stores a reference to the backend which was
+used to create it, and which will be used to access it. As Rapture JSON permits
+multiple different parsers to be used alongside each other, it is important
+that the AST within each `Json` instance is handled using the right backend.
 
 ### Accessing JSON values
 
