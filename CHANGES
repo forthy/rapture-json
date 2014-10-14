@@ -1,6 +1,0 @@
-- Any jsonizable object can now be used in a string context JSON literal
-- Fixed AbstractMethodError
-- Serialize empty arrays and objects without newlines
-- Split out generic data package
-- Formatters have been introduced
-- `serialize` method has been removed in favor of `format` method, plus formatters
