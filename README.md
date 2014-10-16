@@ -69,6 +69,18 @@ sbt package
 If the compilation is successful, the compiled JAR file should be found in the
 directory for the appropriate Scala version in the `target` directory.
 
+### Contributing
+
+Rapture JSON -- like all the Rapture projects -- openly welcomes contributions!
+We would love to receive pull requests of bugfixes and enhancements from other
+developers. To avoid potential wasted effort, bugs should first be reported on
+the Github issue tracker, and it's normally a good idea to talk about
+enhancements on the Rapture mailing list before embarking on any development.
+Alternatively, just send Jon Pretty (@propensive) a tweet to start a
+conversation.
+
+# Using Rapture JSON
+
 ## JSON Representation
 
 Rapture JSON is designed to be agnostic about the JSON parser and choice of AST
@@ -326,7 +338,10 @@ import patternMatching.exact
 
 ## Modifying `Json`
 
-Whatever underlying backend is used, the `Json` type is immutable. A small number of methods are provided to create new `Json` values from existing values. Given a `Json` value, a new key may be added using the following syntax:
+Whatever underlying backend is used, the `Json` type is immutable. A small
+number of methods are provided to create new `Json` values from existing
+values. Given a `Json` value, a new key may be added using the following
+syntax:
 
 ```scala
 val j = json"""{ "fruit": "plum" }"""
@@ -457,3 +472,20 @@ updating references as necessary to give the impression of a mutable data
 structure. However, using a backend which uses a mutable JSON representation
 will likely result in better performance.
 
+## Outputting JSON
+
+Often, the easiest way to output JSON from the `Json` type is to call `.toString` on the `Json` value. Although simple, this has the disadvantages that it does not offer any flexibility in how the JSON is formatted, and it always returns a `String` whereas other types, such as an input stream may be more appropriate for some applications.
+
+The more general method is to use the `Json.format` method, with an appropriate implicit `Formatter` in scope. Two formatters are provided as standard:
+
+ - `formatters.humanReadable`, which formats the JSON with newlines and indentation, attempting to make it as readable as possible,
+ - `formatters.compact`, which includes no unnecessary whitespace
+
+Both formatters return `String`s, though it is possible for other backends to provide their own formatters for outputting to other types.
+
+For example,
+
+```scala
+import formatters.compact
+val out = Json.format(json)
+```
