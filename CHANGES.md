@@ -9,3 +9,6 @@ This document describes the changes included in each release of Rapture JSON.
 ## Version 1.0.2
  - Fix for serious infinite recursion issue when accessing a JSON object key, and indexing an array in the same expression (`applyDynamic`).
  - Removed unnecessary `DynamicWorkaround` for Scala 2.11 (where it isn't necessary).
+
+## Version 1.0.3
+ - Automatically convert between different JSON backends just by wrapping in `Json`.

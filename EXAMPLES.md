@@ -64,4 +64,8 @@ Code                                   | Description
 `Json(MyCaseClass(42, "Hello", true))` | Returns a `Json` object
 `Json(backendJsonValue)`               | Returns a Rapture `Json` value which wraps a type from the underlying JSON backend
 
+## Modifying JSON
+
+
+
 *To be completed*
