@@ -32,7 +32,9 @@ import language.higherKinds
 trait Serializers {
 
   implicit def identitySerializer(implicit ast: JsonAst): Serializer[Json, Json] =
-    new Serializer[Json, Json] { def serialize(j: Json) = j.$root.value }
+    new Serializer[Json, Json] {
+      def serialize(j: Json) = if(j.$ast == ast) j.$root.value else Json.convert(j)(ast)
+    }
 
   implicit def intSerializer(implicit ast: JsonAst): Serializer[Int, Json] =
     new Serializer[Int, Json] { def serialize(i: Int) = ast.fromDouble(i.toDouble) }
@@ -73,13 +75,19 @@ trait Serializers {
     }
  
   implicit def jsonSerializer(implicit ast: JsonBufferAst): Serializer[Json, JsonBuffer] =
-    new Serializer[Json, JsonBuffer] { def serialize(j: Json) = j.$root.value }
+    new Serializer[Json, JsonBuffer] {
+      def serialize(j: Json) = if(j.$ast == ast) j.$root.value else Json.convert(j)(ast).$root.value
+    }
 
   implicit def jsonBufferSerializer(implicit ast: JsonAst): Serializer[JsonBuffer, Json] =
-    new Serializer[JsonBuffer, Json] { def serialize(j: JsonBuffer) = j.$root.value }
+    new Serializer[JsonBuffer, Json] {
+      def serialize(j: JsonBuffer) = if(j.$ast == ast) j.$root.value else Json.convert(j)(ast).$root.value
+    }
 
   implicit def identitySerializer2(implicit ast: JsonBufferAst): Serializer[JsonBuffer, JsonBuffer] =
-    new Serializer[JsonBuffer, JsonBuffer] { def serialize(j: JsonBuffer) = j.$root.value }
+    new Serializer[JsonBuffer, JsonBuffer] {
+      def serialize(j: JsonBuffer) = if(j.$ast == ast) j.$root.value else JsonBuffer.convert(j)(ast).$root.value
+    }
 
   implicit def intSerializer2(implicit ast: JsonBufferAst): Serializer[Int, JsonBuffer] =
     new Serializer[Int, JsonBuffer] { def serialize(i: Int) = ast.fromDouble(i.toDouble) }
