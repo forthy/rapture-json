@@ -51,6 +51,18 @@ trait Serializers {
       (implicit ast: Ast): Serializer[Double, JsonType] =
     new Serializer[Double, JsonType] { def serialize(d: Double) = ast.fromDouble(d) }
 
+  implicit def bigDecimalSerializer[Ast <: JsonAst, JsonType <: JsonDataType[JsonType,
+      _ <: Ast]](implicit ast: Ast): Serializer[BigDecimal, JsonType] =
+    new Serializer[BigDecimal, JsonType] {
+      def serialize(b: BigDecimal) = ast.fromBigDecimal(b)
+    }
+
+  implicit def bigIntSerializer[Ast <: JsonAst, JsonType <: JsonDataType[JsonType, _ <: Ast]]
+      (implicit ast: Ast): Serializer[BigInt, JsonType] =
+    new Serializer[BigInt, JsonType] {
+      def serialize(b: BigInt) = ast.fromBigDecimal(BigDecimal(b))
+    }
+
   implicit def longSerializer[Ast <: JsonAst, JsonType <: JsonDataType[JsonType, _ <: Ast]]
       (implicit ast: Ast): Serializer[Long, JsonType] =
     new Serializer[Long, JsonType] { def serialize(l: Long) = ast.fromDouble(l.toDouble) }

@@ -49,6 +49,11 @@ trait JsonAst extends DataAst {
 
   def fromDouble(number: Double): Any
 
+  /** Extracts a `BigDecimal` from the parsed JSON. */
+  def getBigDecimal(number: Any): BigDecimal
+  
+  def fromBigDecimal(number: BigDecimal): Any
+
   /** Tests if the element represents a `Boolean` */
   def isBoolean(any: Any): Boolean
   

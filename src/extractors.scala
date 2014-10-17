@@ -32,23 +32,28 @@ import language.higherKinds
 
 trait Extractors {
 
-  implicit def jsonExtractor(implicit ast: JsonAst) =
-    BasicExtractor[Json, JsonDataType[_, _ <: JsonAst]](x =>
-        Json.construct(VCell(x.$root.value), x.$path))
+  implicit def jsonExtractor(implicit ast: JsonAst):
+      Extractor[Json, JsonDataType[_, _ <: JsonAst]] =
+    BasicExtractor(x => Json.construct(VCell(x.$root.value), x.$path))
 
-  implicit def jsonBufferExtractor(implicit ast: JsonBufferAst) =
-    BasicExtractor[JsonBuffer, JsonDataType[_, _ <: JsonAst]](x =>
-        JsonBuffer.construct(VCell(x.$root.value), x.$path))
+  implicit def jsonBufferExtractor(implicit ast: JsonBufferAst):
+      Extractor[JsonBuffer, JsonDataType[_, _ <: JsonAst]] =
+    BasicExtractor(x => JsonBuffer.construct(VCell(x.$root.value), x.$path))
 
   implicit val stringExtractor: Extractor[String, JsonDataType[_, _ <: JsonAst]] =
-    BasicExtractor[String, JsonDataType[_, _ <: JsonAst]](x => x.$ast.getString(x.$root.value))
+    BasicExtractor(x => x.$ast.getString(x.$root.value))
 
   implicit val doubleExtractor: Extractor[Double, JsonDataType[_, _ <: JsonAst]] =
-    BasicExtractor[Double, JsonDataType[_, _ <: JsonAst]](x => x.$ast.getDouble(x.$root.value))
+    BasicExtractor(x => x.$ast.getDouble(x.$root.value))
 
   implicit val booleanExtractor: Extractor[Boolean, JsonDataType[_, _ <: JsonAst]] =
-    BasicExtractor[Boolean, JsonDataType[_, _ <: JsonAst]](x =>
-        x.$ast.getBoolean(x.$root.value))
+    BasicExtractor(x => x.$ast.getBoolean(x.$root.value))
+  
+  implicit val bigDecimalExtractor: Extractor[BigDecimal, JsonDataType[_, _ <: JsonAst]] =
+    BasicExtractor(x => x.$ast.getBigDecimal(x.$root.value))
+  
+  implicit val bigIntExtractor: Extractor[BigInt, JsonDataType[_, _ <: JsonAst]] =
+    BasicExtractor(x => x.$ast.getBigDecimal(x.$root.value).toBigInt)
 }
 
 
