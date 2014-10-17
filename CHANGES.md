@@ -13,4 +13,6 @@ This document describes the changes included in each release of Rapture JSON.
 ## Version 1.0.3
  - Automatically convert between different JSON backends just by wrapping in `Json`.
  - Fix regression on nested case class extraction, with "double definition" error occurring during macro expansion (#17).
+ - Support extraction of `BigInt`s and `BigDecimal`s
+ - Tidyup of serialization type classes
 
