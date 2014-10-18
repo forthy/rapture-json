@@ -1,6 +1,6 @@
 /**********************************************************************************************\
 * Rapture JSON Library                                                                         *
-* Version 1.0.0                                                                                *
+* Version 1.0.3                                                                                *
 *                                                                                              *
 * The primary distribution site is                                                             *
 *                                                                                              *
@@ -56,6 +56,13 @@ object ScalaJsonAst extends JsonBufferAst {
   }
   
   def fromDouble(double: Double): Any = double
+  
+  def getBigDecimal(bigDecimal: Any): BigDecimal = bigDecimal match {
+    case bigDecimal: Double => BigDecimal(bigDecimal)
+    case _ => throw TypeMismatchException(getType(bigDecimal), DataTypes.Number, Vector())
+  }
+  
+  def fromBigDecimal(bigDecimal: BigDecimal): Any = bigDecimal.toDouble
   
   def getString(string: Any): String = string match {
     case string: String => string

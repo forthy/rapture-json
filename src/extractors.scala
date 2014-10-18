@@ -18,6 +18,7 @@
 * either express or implied. See the License for the specific language governing permissions   *
 * and limitations under the License.                                                           *
 \**********************************************************************************************/
+
 package rapture.json
 
 import rapture.core._
@@ -29,17 +30,30 @@ import scala.annotation._
 import language.experimental.macros
 import language.higherKinds
 
-object JsonMacros {
-  def jsonExtractorMacro[T: c.WeakTypeTag](c: Context): c.Expr[Extractor[T, Json]] =
-    Macros.extractorMacro[T, Json](c)
+trait Extractors {
+
+  implicit def jsonExtractor(implicit ast: JsonAst):
+      Extractor[Json, JsonDataType[_, _ <: JsonAst]] =
+    BasicExtractor(x => Json.construct(VCell(x.$root.value), x.$path))
+
+  implicit def jsonBufferExtractor(implicit ast: JsonBufferAst):
+      Extractor[JsonBuffer, JsonDataType[_, _ <: JsonAst]] =
+    BasicExtractor(x => JsonBuffer.construct(VCell(x.$root.value), x.$path))
+
+  implicit val stringExtractor: Extractor[String, JsonDataType[_, _ <: JsonAst]] =
+    BasicExtractor(x => x.$ast.getString(x.$root.value))
+
+  implicit val doubleExtractor: Extractor[Double, JsonDataType[_, _ <: JsonAst]] =
+    BasicExtractor(x => x.$ast.getDouble(x.$root.value))
+
+  implicit val booleanExtractor: Extractor[Boolean, JsonDataType[_, _ <: JsonAst]] =
+    BasicExtractor(x => x.$ast.getBoolean(x.$root.value))
   
-  def jsonBufferExtractorMacro[T: c.WeakTypeTag](c: Context): c.Expr[Extractor[T, JsonBuffer]] =
-    Macros.extractorMacro[T, JsonBuffer](c)
+  implicit val bigDecimalExtractor: Extractor[BigDecimal, JsonDataType[_, _ <: JsonAst]] =
+    BasicExtractor(x => x.$ast.getBigDecimal(x.$root.value))
   
-  def jsonSerializerMacro[T: c.WeakTypeTag](c: Context)(ast: c.Expr[JsonAst]): c.Expr[Serializer[T, Json]] =
-    Macros.serializerMacro[T, Json](c)(ast)
-  
-  def jsonBufferSerializerMacro[T: c.WeakTypeTag](c: Context)(ast: c.Expr[JsonBufferAst]):
-      c.Expr[Serializer[T, JsonBuffer]] = Macros.serializerMacro[T, JsonBuffer](c)(ast)
+  implicit val bigIntExtractor: Extractor[BigInt, JsonDataType[_, _ <: JsonAst]] =
+    BasicExtractor(x => x.$ast.getBigDecimal(x.$root.value).toBigInt)
 }
+
 

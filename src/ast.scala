@@ -1,6 +1,6 @@
 /**********************************************************************************************\
 * Rapture JSON Library                                                                         *
-* Version 1.0.0                                                                                *
+* Version 1.0.3                                                                                *
 *                                                                                              *
 * The primary distribution site is                                                             *
 *                                                                                              *
@@ -48,6 +48,11 @@ trait JsonAst extends DataAst {
   def getDouble(number: Any): Double
 
   def fromDouble(number: Double): Any
+
+  /** Extracts a `BigDecimal` from the parsed JSON. */
+  def getBigDecimal(number: Any): BigDecimal
+  
+  def fromBigDecimal(number: BigDecimal): Any
 
   /** Tests if the element represents a `Boolean` */
   def isBoolean(any: Any): Boolean
