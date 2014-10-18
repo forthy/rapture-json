@@ -1,6 +1,6 @@
 /**********************************************************************************************\
 * Rapture JSON Library                                                                         *
-* Version 1.0.0                                                                                *
+* Version 1.0.3                                                                                *
 *                                                                                              *
 * The primary distribution site is                                                             *
 *                                                                                              *
@@ -30,6 +30,25 @@ import language.higherKinds
 
 trait JsonDataCompanion[+Type <: JsonDataType[Type, AstType],
     AstType <: JsonAst] extends DataCompanion[Type, AstType] {
+
+  def convert[J <: JsonDataType[J, _ <: JsonAst]](json: J)(implicit ast: AstType): Type = {
+    val oldAst = json.$ast
+    
+    def convert(j: Any): Any =
+      if(oldAst.isString(j))
+        ast.fromString(oldAst.getString(j))
+      else if(oldAst.isBoolean(j))
+        ast.fromBoolean(oldAst.getBoolean(j))
+      else if(oldAst.isNumber(j))
+        ast.fromDouble(oldAst.getDouble(j))
+      else if(oldAst.isArray(j))
+        ast.fromArray(oldAst.getArray(j).map(convert))
+      else if(oldAst.isObject(j))
+        ast.fromObject(oldAst.getObject(j).mapValues(convert))
+      else ast.nullValue
+
+    construct(VCell(convert(json.$root.value)), json.$path)(ast)
+  }
 
   /** Formats the JSON object for multi-line readability. */
   private[json] def doFormat(json: Any, ln: Int, ast: AstType, pad: String = " ",
@@ -67,54 +86,38 @@ trait JsonDataType[+T <: JsonDataType[T, AstType], AstType <: JsonAst]
     extends DataType[T, AstType]
 
 object JsonBuffer extends JsonDataCompanion[JsonBuffer, JsonBufferAst] {
+  
   def construct(any: VCell, path: Vector[Either[Int, String]])(implicit ast:
       JsonBufferAst): JsonBuffer = new JsonBuffer(any, path)
-  
 }
 
 /** Companion object to the `Json` type, providing factory and extractor methods, and a JSON
   * pretty printer. */
 object Json extends JsonDataCompanion[Json, JsonAst] {
+  
   def construct(any: VCell, path: Vector[Either[Int, String]])(implicit ast:
       JsonAst): Json = new Json(any, path)
 
   def extractor[T](implicit ext: Extractor[T, Json]) = ext
-
-  def convert(json: Json)(implicit ast: JsonAst): Json = {
-    val oldAst = json.$ast
-    
-    def convert(j: Any): Any =
-      if(oldAst.isString(j))
-        ast.fromString(oldAst.getString(j))
-      else if(oldAst.isBoolean(j))
-        ast.fromBoolean(oldAst.getBoolean(j))
-      else if(oldAst.isNumber(j))
-        ast.fromDouble(oldAst.getDouble(j))
-      else if(oldAst.isArray(j))
-        ast.fromArray(oldAst.getArray(j).map(convert))
-      else if(oldAst.isObject(j))
-        ast.fromObject(oldAst.getObject(j).mapValues(convert))
-      else ast.nullValue
-
-    new Json(VCell(convert(json.$root.value)), json.$path)(ast)
-  }
 }
 
 /** Represents some parsed JSON. */
 class Json(val $root: VCell, val $path: Vector[Either[Int, String]] = Vector())(implicit
     val $ast: JsonAst) extends JsonDataType[Json, JsonAst] with DynamicData[Json, JsonAst] {
+  
   def $wrap(any: Any, path: Vector[Either[Int, String]]): Json = new Json(VCell(any), path)
+  
   def $deref(path: Vector[Either[Int, String]]): Json = new Json($root, path)
-
-  override def toString =
-    try Json.format(this)(formatters.humanReadable($ast)) catch {
-      case e: Exception => "undefined"
-    }
 
   def $extract(sp: Vector[Either[Int, String]]): Json =
     if(sp.isEmpty) this else sp match {
       case Left(i) +: tail => apply(i).$extract(tail)
       case Right(e) +: tail => selectDynamic(e).$extract(tail)
+    }
+  
+  override def toString =
+    try Json.format(this)(formatters.humanReadable($ast)) catch {
+      case e: Exception => "undefined"
     }
 }
 
@@ -122,7 +125,10 @@ class JsonBuffer(val $root: VCell, val $path: Vector[Either[Int, String]] = Vect
     (implicit val $ast: JsonBufferAst) extends
     JsonDataType[JsonBuffer, JsonBufferAst] with
     MutableDataType[JsonBuffer, JsonBufferAst] with DynamicData[JsonBuffer, JsonBufferAst] {
-  def $wrap(any: Any, path: Vector[Either[Int, String]]): JsonBuffer = new JsonBuffer(VCell(any), path)
+
+  def $wrap(any: Any, path: Vector[Either[Int, String]]): JsonBuffer =
+    new JsonBuffer(VCell(any), path)
+  
   def $deref(path: Vector[Either[Int, String]]): JsonBuffer = new JsonBuffer($root, path)
   
   def $extract(sp: Vector[Either[Int, String]]): JsonBuffer =
@@ -130,6 +136,7 @@ class JsonBuffer(val $root: VCell, val $path: Vector[Either[Int, String]] = Vect
       case Left(i) +: tail => apply(i).$extract(tail)
       case Right(e) +: tail => selectDynamic(e).$extract(tail)
     }
+  
   override def toString =
     try JsonBuffer.format(this)(formatters.humanReadable($ast)) catch {
       case e: Exception => "undefined"

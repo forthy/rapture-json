@@ -13,7 +13,7 @@ All API changes will be documented with instructions on how to upgrade.
 
 ### Availability
 
-Rapture JSON 1.0.2 is available under the Apache 2.0 License from Maven Central
+Rapture JSON 1.0.3 is available under the Apache 2.0 License from Maven Central
 with group ID `com.propensive` and artifact ID `rapture-json_2.11`.
 
 #### SBT
@@ -22,7 +22,7 @@ You can include Rapture JSON as a dependency in your own project by adding the
 following library dependency to your build file:
 
 ```scala
-libraryDependencies ++= Seq("com.propensive" %% "rapture-json-[backend]" % "1.0.2")
+libraryDependencies ++= Seq("com.propensive" %% "rapture-json-[backend]" % "1.0.3")
 ```
 
 where `[backend]` is one of the following JSON backends:
@@ -39,7 +39,7 @@ the following dependency, though this is not recommended due to the poor
 performance characteristics of this parser.
 
 ```scala
-libraryDependencies ++= Seq("com.propensive" %% "rapture-json" % "1.0.2")
+libraryDependencies ++= Seq("com.propensive" %% "rapture-json" % "1.0.3")
 ```
 
 #### Maven
@@ -50,7 +50,7 @@ If you use Maven, include the following dependency:
 <dependency>
   <groupId>com.propensive</groupId>
   <artifactId>rapture-json-[backend]_2.11</artifactId>
-  <version>1.0.2<version>
+  <version>1.0.3<version>
 </dependency>
 ```
 
@@ -68,6 +68,18 @@ sbt package
 
 If the compilation is successful, the compiled JAR file should be found in the
 directory for the appropriate Scala version in the `target` directory.
+
+### Contributing
+
+Rapture JSON -- like all the Rapture projects -- openly welcomes contributions!
+We would love to receive pull requests of bugfixes and enhancements from other
+developers. To avoid potential wasted effort, bugs should first be reported on
+the Github issue tracker, and it's normally a good idea to talk about
+enhancements on the Rapture mailing list before embarking on any development.
+Alternatively, just send Jon Pretty (@propensive) a tweet to start a
+conversation.
+
+# Using Rapture JSON
 
 ## JSON Representation
 
@@ -326,7 +338,10 @@ import patternMatching.exact
 
 ## Modifying `Json`
 
-Whatever underlying backend is used, the `Json` type is immutable. A small number of methods are provided to create new `Json` values from existing values. Given a `Json` value, a new key may be added using the following syntax:
+Whatever underlying backend is used, the `Json` type is immutable. A small
+number of methods are provided to create new `Json` values from existing
+values. Given a `Json` value, a new key may be added using the following
+syntax:
 
 ```scala
 val j = json"""{ "fruit": "plum" }"""
@@ -457,3 +472,20 @@ updating references as necessary to give the impression of a mutable data
 structure. However, using a backend which uses a mutable JSON representation
 will likely result in better performance.
 
+## Outputting JSON
+
+Often, the easiest way to output JSON from the `Json` type is to call `.toString` on the `Json` value. Although simple, this has the disadvantages that it does not offer any flexibility in how the JSON is formatted, and it always returns a `String` whereas other types, such as an input stream may be more appropriate for some applications.
+
+The more general method is to use the `Json.format` method, with an appropriate implicit `Formatter` in scope. Two formatters are provided as standard:
+
+ - `formatters.humanReadable`, which formats the JSON with newlines and indentation, attempting to make it as readable as possible,
+ - `formatters.compact`, which includes no unnecessary whitespace
+
+Both formatters return `String`s, though it is possible for other backends to provide their own formatters for outputting to other types.
+
+For example,
+
+```scala
+import formatters.compact
+val out = Json.format(json)
+```
