@@ -51,8 +51,8 @@ class LowPriorityFormatters {
         } else if(ast.isBoolean(j)) {
           if(ast.getBoolean(j)) "true" else "false"
         } else if(ast.isNumber(j)) {
-          val n = ast.getDouble(j)
-          if(n == n.floor) n.toInt.toString else n.toString
+          val bd = ast.getBigDecimal(j)
+          if(bd.isWhole) bd.toBigInt.toString else bd.toString
         } else if(ast.isArray(j)) {
           val arr = ast.getArray(j)
           if(arr.isEmpty) "[]" else List("[", arr map { v =>
