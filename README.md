@@ -56,7 +56,7 @@ If you use Maven, include the following dependency:
 
 where [backend] is one of the backends listed above.
 
-#### Building from source
+#### Building from source with SBT
 
 To build Rapture JSON from source, follow these steps:
 
@@ -472,16 +472,27 @@ updating references as necessary to give the impression of a mutable data
 structure. However, using a backend which uses a mutable JSON representation
 will likely result in better performance.
 
+## Converting JSON
+
+Depending on how a JSON value is created, the same Scala type is used, regardless of the JSON backend that was used to create it.
+
 ## Outputting JSON
 
-Often, the easiest way to output JSON from the `Json` type is to call `.toString` on the `Json` value. Although simple, this has the disadvantages that it does not offer any flexibility in how the JSON is formatted, and it always returns a `String` whereas other types, such as an input stream may be more appropriate for some applications.
+Often, the easiest way to output JSON from the `Json` type is to call
+`.toString` on the `Json` value. Although simple, this has the disadvantages
+that it does not offer any flexibility in how the JSON is formatted, and it
+always returns a `String` whereas other types, such as an input stream may be
+more appropriate for some applications.
 
-The more general method is to use the `Json.format` method, with an appropriate implicit `Formatter` in scope. Two formatters are provided as standard:
+The more general method is to use the `Json.format` method, with an appropriate
+implicit `Formatter` in scope. Two formatters are provided as standard:
 
- - `formatters.humanReadable`, which formats the JSON with newlines and indentation, attempting to make it as readable as possible,
+ - `formatters.humanReadable`, which formats the JSON with newlines and
+   indentation, attempting to make it as readable as possible,
  - `formatters.compact`, which includes no unnecessary whitespace
 
-Both formatters return `String`s, though it is possible for other backends to provide their own formatters for outputting to other types.
+Both formatters return `String`s, though it is possible for other backends to
+provide their own formatters for outputting to other types.
 
 For example,
 

@@ -31,25 +31,6 @@ import language.higherKinds
 trait JsonDataCompanion[+Type <: JsonDataType[Type, AstType],
     AstType <: JsonAst] extends DataCompanion[Type, AstType] {
 
-  def convert[J <: JsonDataType[J, _ <: JsonAst]](json: J)(implicit ast: AstType): Type = {
-    val oldAst = json.$ast
-    
-    def convert(j: Any): Any =
-      if(oldAst.isString(j))
-        ast.fromString(oldAst.getString(j))
-      else if(oldAst.isBoolean(j))
-        ast.fromBoolean(oldAst.getBoolean(j))
-      else if(oldAst.isNumber(j))
-        ast.fromDouble(oldAst.getDouble(j))
-      else if(oldAst.isArray(j))
-        ast.fromArray(oldAst.getArray(j).map(convert))
-      else if(oldAst.isObject(j))
-        ast.fromObject(oldAst.getObject(j).mapValues(convert))
-      else ast.nullValue
-
-    construct(VCell(convert(json.$root.value)), json.$path)(ast)
-  }
-
   /** Formats the JSON object for multi-line readability. */
   private[json] def doFormat(json: Any, ln: Int, ast: AstType, pad: String = " ",
       brk: String = "\n"): String = {
