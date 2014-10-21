@@ -1,6 +1,6 @@
 /**********************************************************************************************\
 * Rapture JSON Library                                                                         *
-* Version 1.0.3                                                                                *
+* Version 1.0.4                                                                                *
 *                                                                                              *
 * The primary distribution site is                                                             *
 *                                                                                              *
