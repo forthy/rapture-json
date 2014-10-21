@@ -91,11 +91,12 @@ trait Serializers {
 
   case class DirectSerializer[T](ast: JsonAst)
 
-  implicit def directSerializer[T, Ast <: JsonAst, JsonType <: JsonDataType[JsonType, _ <: Ast]]
-      (implicit ast: Ast, ser: Serializer[Json, Json], ds: DirectSerializer[T]):
+  implicit def directSerializer[T: DirectSerializer, Ast <: JsonAst, JsonType <:
+      JsonDataType[JsonType, _ <: Ast]](implicit ast: Ast, ser: Serializer[Json, Json]):
       Serializer[T, JsonType] =
     new Serializer[T, JsonType] {
-      def serialize(obj: T) = ser.serialize(Json.construct(VCell(obj), Vector())(ds.ast))
+      def serialize(obj: T) =
+        ser.serialize(Json.construct(VCell(obj), Vector())(?[DirectSerializer[T]].ast))
     }
 
   implicit def jsonSerializer[Ast <: JsonAst, JsonType <: JsonDataType[JsonType, _ <: JsonAst],
