@@ -16,3 +16,6 @@ This document describes the changes included in each release of Rapture JSON.
  - Support extraction of `BigInt`s and `BigDecimal`s
  - Tidyup of serialization type classes
 
+## Version 1.0.4
+ - Fixed serious bug with pattern matching
+ - Simplified definitions of serializers

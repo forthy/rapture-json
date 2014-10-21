@@ -1,6 +1,6 @@
 /**********************************************************************************************\
 * Rapture JSON Library                                                                         *
-* Version 1.0.3                                                                                *
+* Version 1.0.4                                                                                *
 *                                                                                              *
 * The primary distribution site is                                                             *
 *                                                                                              *
@@ -36,23 +36,25 @@ trait Extractors {
       Extractor[Json, JsonDataType[_, _ <: JsonAst]] =
     BasicExtractor(x => Json.construct(VCell(x.$root.value), x.$path))
 
+  type JsonExtractor[T] = Extractor[T, JsonDataType[_, _ <: JsonAst]]
+
   implicit def jsonBufferExtractor(implicit ast: JsonBufferAst):
       Extractor[JsonBuffer, JsonDataType[_, _ <: JsonAst]] =
     BasicExtractor(x => JsonBuffer.construct(VCell(x.$root.value), x.$path))
 
-  implicit val stringExtractor: Extractor[String, JsonDataType[_, _ <: JsonAst]] =
+  implicit val stringExtractor: JsonExtractor[String] =
     BasicExtractor(x => x.$ast.getString(x.$root.value))
 
-  implicit val doubleExtractor: Extractor[Double, JsonDataType[_, _ <: JsonAst]] =
+  implicit val doubleExtractor: JsonExtractor[Double] =
     BasicExtractor(x => x.$ast.getDouble(x.$root.value))
 
-  implicit val booleanExtractor: Extractor[Boolean, JsonDataType[_, _ <: JsonAst]] =
+  implicit val booleanExtractor: JsonExtractor[Boolean] =
     BasicExtractor(x => x.$ast.getBoolean(x.$root.value))
   
-  implicit val bigDecimalExtractor: Extractor[BigDecimal, JsonDataType[_, _ <: JsonAst]] =
+  implicit val bigDecimalExtractor: JsonExtractor[BigDecimal] =
     BasicExtractor(x => x.$ast.getBigDecimal(x.$root.value))
   
-  implicit val bigIntExtractor: Extractor[BigInt, JsonDataType[_, _ <: JsonAst]] =
+  implicit val bigIntExtractor: JsonExtractor[BigInt] =
     BasicExtractor(x => x.$ast.getBigDecimal(x.$root.value).toBigInt)
 }
 
