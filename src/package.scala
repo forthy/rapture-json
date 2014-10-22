@@ -26,12 +26,7 @@ import rapture.data._
 import language.higherKinds
 import language.experimental.macros
 
-object `package` extends Serializers with Extractors {
-
-  implicit class DynamicWorkaround(json: Json) {
-    def self: Json = json.selectDynamic("json")
-  }
-
+trait LowPriorityPackage {
   implicit def jsonExtractorMacro[T <: Product]: Extractor[T, Json] =
     macro JsonMacros.jsonExtractorMacro[T]
   
@@ -43,7 +38,27 @@ object `package` extends Serializers with Extractors {
   
   implicit def jsonBufferSerializerMacro[T <: Product](implicit ast: JsonBufferAst): Serializer[T, JsonBuffer] =
     macro JsonMacros.jsonBufferSerializerMacro[T]
-  
+}
+
+object `package` extends Serializers with Extractors with LowPriorityPackage {
+
+  implicit def jsonCastExtractor[T: JsonCastExtractor](implicit ast: JsonAst,
+      ser: Serializer[Json, Json]): Extractor[T, JsonDataType[_, _ <: JsonAst]] =
+    new Extractor[T, JsonDataType[_, _ <: JsonAst]] {
+      def construct(value: JsonDataType[_, _ <: JsonAst], ast2: DataAst): T =
+        ast2 match {
+          case ast2: JsonAst =>
+            if(ast == ast2) value.$normalize.asInstanceOf[T]
+            else ser.serialize(Json.construct(VCell(value.$normalize),
+                Vector())(ast2)).asInstanceOf[T]
+          case _ => ???
+        }
+    }
+
+  implicit class DynamicWorkaround(json: Json) {
+    def self: Json = json.selectDynamic("json")
+  }
+
   implicit def jsonStrings(sc: StringContext)(implicit parser: Parser[String, JsonAst]) =
     new JsonStrings(sc)
   

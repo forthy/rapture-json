@@ -34,9 +34,11 @@ trait Extractors {
 
   implicit def jsonExtractor(implicit ast: JsonAst):
       Extractor[Json, JsonDataType[_, _ <: JsonAst]] =
-    BasicExtractor(x => Json.construct(VCell(x.$root.value), x.$path))
+    BasicExtractor(x => Json.construct(VCell(x.$normalize), x.$path))
 
   type JsonExtractor[T] = Extractor[T, JsonDataType[_, _ <: JsonAst]]
+
+  case class JsonCastExtractor[T](ast: JsonAst)
 
   implicit def jsonBufferExtractor(implicit ast: JsonBufferAst):
       Extractor[JsonBuffer, JsonDataType[_, _ <: JsonAst]] =
