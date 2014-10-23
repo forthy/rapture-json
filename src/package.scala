@@ -26,8 +26,7 @@ import rapture.data._
 import language.higherKinds
 import language.experimental.macros
 
-object `package` extends Serializers with Extractors {
-
+trait VeryLowPriorityPackage {
   implicit def jsonExtractorMacro[T <: Product]: Extractor[T, Json] =
     macro JsonMacros.jsonExtractorMacro[T]
   
@@ -37,13 +36,35 @@ object `package` extends Serializers with Extractors {
   implicit def jsonSerializerMacro[T <: Product](implicit ast: JsonAst): Serializer[T, Json] =
     macro JsonMacros.jsonSerializerMacro[T]
   
-  implicit def jsonBufferSerializerMacro[T <: Product](implicit ast: JsonBufferAst): Serializer[T, JsonBuffer] =
-    macro JsonMacros.jsonBufferSerializerMacro[T]
-  
+  implicit def jsonBufferSerializerMacro[T <: Product](implicit ast: JsonBufferAst):
+      Serializer[T, JsonBuffer] = macro JsonMacros.jsonBufferSerializerMacro[T]
+}
+
+trait LowPriorityPackage extends VeryLowPriorityPackage
+
+object `package` extends Serializers with Extractors with LowPriorityPackage {
+
+  implicit def jsonCastExtractor[T: JsonCastExtractor](implicit ast: JsonAst):
+      Extractor[T, JsonDataType[_, _ <: JsonAst]] =
+    new Extractor[T, JsonDataType[_, _ <: JsonAst]] {
+      def construct(value: JsonDataType[_, _ <: JsonAst], ast2: DataAst): T =
+        ast2 match {
+          case ast2: JsonAst =>
+            if(ast == ast2) value.$normalize.asInstanceOf[T]
+            else jsonSerializer.serialize(Json.construct(VCell(value.$normalize),
+                Vector())(ast2)).asInstanceOf[T]
+          case _ => ???
+        }
+    }
+
+  implicit class DynamicWorkaround(json: Json) {
+    def self: Json = json.selectDynamic("json")
+  }
+
   implicit def jsonStrings(sc: StringContext)(implicit parser: Parser[String, JsonAst]) =
     new JsonStrings(sc)
   
-  implicit def jsonBufferStrings(sc: StringContext)(implicit parser: Parser[String, JsonBufferAst]) =
-    new JsonBufferStrings(sc)
+  implicit def jsonBufferStrings(sc: StringContext)(implicit parser: Parser[String,
+      JsonBufferAst]) = new JsonBufferStrings(sc)
 }
 
