@@ -100,11 +100,11 @@ trait Serializers {
     }
 
   implicit def jsonSerializer[Ast <: JsonAst, JsonType <: JsonDataType[JsonType, _ <: JsonAst],
-      JsonType2 <: JsonDataType[JsonType2, _ <: Ast]](implicit ast: Ast): Serializer[JsonType,
+      JsonType2 <: JsonDataType[_, _ <: JsonAst]](implicit ast: Ast): Serializer[JsonType,
       JsonType2] =
     new Serializer[JsonType, JsonType2] {
       def serialize(j: JsonType) =
-        if(j.$ast == ast) j.$root.value else {
+        if(j.$ast == ast) j.$normalize else {
           val oldAst = j.$ast
 
           def convert(v: Any): Any =
@@ -115,7 +115,7 @@ trait Serializers {
             else if(oldAst.isObject(v)) ast.fromObject(oldAst.getObject(v).mapValues(convert))
             else ast.nullValue
 
-          convert(j.$root.value)
+          convert(j.$normalize)
         }
     }
 }
