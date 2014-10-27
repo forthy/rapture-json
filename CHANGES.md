@@ -19,3 +19,7 @@ This document describes the changes included in each release of Rapture JSON.
 ## Version 1.0.4
  - Fixed serious bug with pattern matching
  - Simplified definitions of extractors and serializers, and support for auto-conversion between different backends on extraction
+
+## Version 1.0.5
+ - Fixed exponential build times (in the nesting depth of extracted case classes)
+ - Simpler definitions of serializers
