@@ -3,20 +3,24 @@
 # Rapture JSON
 
 Rapture JSON is a comprehensive library providing support for working with JSON
-in Scala.
+in Scala. Rapture JSON is part of the [Rapture](http://rapture.io/) project.
 
-### Status
+## Features
 
-Rapture JSON is now *stable*. This means that the API represents a useful set
-of features, and is unlikely to change significantly in subsequent releases.
-All API changes will be documented with instructions on how to upgrade.
+ - Clean, intuitive, unintrusive, boilerplate-free Scala API
+ - Trivial extraction and serialization to/from primitives, collections and case classes
+ - Consistent and typesafe type-class-based interfaces
+ - Works with a choice of JSON parsers and backends
+ - Simple, efficient conversion between different backends
+ - Support for both immutable and mutable JSON
+ - Flexible choice of error handling strategies using [modes](https://github.com/propensive/rapture-core)
 
-### Availability
+## Availability
 
-Rapture JSON 1.0.5 is available under the Apache 2.0 License from Maven Central
+Rapture JSON 1.0.5 is available under the *Apache 2.0 License* from Maven Central
 with group ID `com.propensive` and artifact ID `rapture-json_2.10`.
 
-#### SBT
+### SBT
 
 You can include Rapture JSON as a dependency in your own project by adding the
 following library dependency to your build file:
@@ -42,7 +46,7 @@ performance characteristics of this parser.
 libraryDependencies ++= Seq("com.propensive" %% "rapture-json" % "1.0.5")
 ```
 
-#### Maven
+### Maven
 
 If you use Maven, include the following dependency:
 
@@ -56,7 +60,7 @@ If you use Maven, include the following dependency:
 
 where [backend] is one of the backends listed above.
 
-#### Building from source with SBT
+### Building from source with SBT
 
 To build Rapture JSON from source, follow these steps:
 
@@ -69,7 +73,13 @@ sbt package
 If the compilation is successful, the compiled JAR file should be found in the
 directory for the appropriate Scala version in the `target` directory.
 
-### Contributing
+## Status
+
+Rapture JSON is now *stable*. This means that the API represents a useful set
+of features, and is unlikely to change significantly in subsequent releases.
+All API changes will be documented with instructions on how to upgrade.
+
+## Contributing
 
 Rapture JSON -- like all the Rapture projects -- openly welcomes contributions!
 We would love to receive pull requests of bugfixes and enhancements from other
