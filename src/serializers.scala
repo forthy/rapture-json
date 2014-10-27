@@ -1,6 +1,6 @@
 /**********************************************************************************************\
 * Rapture JSON Library                                                                         *
-* Version 1.0.4                                                                                *
+* Version 1.0.5                                                                                *
 *                                                                                              *
 * The primary distribution site is                                                             *
 *                                                                                              *
@@ -31,56 +31,44 @@ import language.higherKinds
 
 trait Serializers {
 
-  implicit def intSerializer[Ast <: JsonAst, JsonType <: JsonDataType[JsonType, _ <: Ast]]
-      (implicit ast: Ast): Serializer[Int, JsonType] =
-    new Serializer[Int, JsonType] { def serialize(i: Int) = ast.fromDouble(i.toDouble) }
+  type JsonSerializer[T] = Serializer[T, JsonDataType[_, _ <: JsonAst]]
 
-  implicit def booleanSerializer[Ast <: JsonAst, JsonType <: JsonDataType[JsonType, _ <: Ast]]
-      (implicit ast: Ast): Serializer[Boolean, JsonType] =
-    new Serializer[Boolean, JsonType] { def serialize(b: Boolean) = ast.fromBoolean(b) }
+  case class BasicJsonSerializer[T](serialization: T => Any) extends Serializer[T,
+      JsonDataType[_, _ <: JsonAst]] { def serialize(t: T): Any = serialization(t) }
 
-  implicit def stringSerializer[Ast <: JsonAst, JsonType <: JsonDataType[JsonType, _ <: Ast]]
-      (implicit ast: Ast): Serializer[String, JsonType] =
-    new Serializer[String, JsonType] { def serialize(s: String) = ast.fromString(s) }
+  implicit def intSerializer(implicit ast: JsonAst): JsonSerializer[Int] =
+    BasicJsonSerializer(ast fromDouble _.toDouble)
 
-  implicit def floatSerializer[Ast <: JsonAst, JsonType <: JsonDataType[JsonType, _ <: Ast]]
-      (implicit ast: Ast): Serializer[Float, JsonType] =
-    new Serializer[Float, JsonType] { def serialize(f: Float) = ast.fromDouble(f.toDouble) }
+  implicit def booleanSerializer(implicit ast: JsonAst): JsonSerializer[Boolean] =
+    BasicJsonSerializer(ast fromBoolean _)
 
-  implicit def doubleSerializer[Ast <: JsonAst, JsonType <: JsonDataType[JsonType, _ <: Ast]]
-      (implicit ast: Ast): Serializer[Double, JsonType] =
-    new Serializer[Double, JsonType] { def serialize(d: Double) = ast.fromDouble(d) }
+  implicit def stringSerializer(implicit ast: JsonAst): JsonSerializer[String] =
+    BasicJsonSerializer(ast fromString _)
 
-  implicit def bigDecimalSerializer[Ast <: JsonAst, JsonType <: JsonDataType[JsonType,
-      _ <: Ast]](implicit ast: Ast): Serializer[BigDecimal, JsonType] =
-    new Serializer[BigDecimal, JsonType] {
-      def serialize(b: BigDecimal) = ast.fromBigDecimal(b)
-    }
+  implicit def floatSerializer(implicit ast: JsonAst): JsonSerializer[Float] =
+    BasicJsonSerializer(ast fromDouble _.toDouble)
 
-  implicit def bigIntSerializer[Ast <: JsonAst, JsonType <: JsonDataType[JsonType, _ <: Ast]]
-      (implicit ast: Ast): Serializer[BigInt, JsonType] =
-    new Serializer[BigInt, JsonType] {
-      def serialize(b: BigInt) = ast.fromBigDecimal(BigDecimal(b))
-    }
+  implicit def doubleSerializer(implicit ast: JsonAst): JsonSerializer[Double] =
+    BasicJsonSerializer(ast fromDouble _)
 
-  implicit def longSerializer[Ast <: JsonAst, JsonType <: JsonDataType[JsonType, _ <: Ast]]
-      (implicit ast: Ast): Serializer[Long, JsonType] =
-    new Serializer[Long, JsonType] { def serialize(l: Long) = ast.fromDouble(l.toDouble) }
+  implicit def bigDecimalSerializer(implicit ast: JsonAst): JsonSerializer[BigDecimal] =
+    BasicJsonSerializer(ast fromBigDecimal _)
 
-  implicit def shortSerializer[Ast <: JsonAst, JsonType <: JsonDataType[JsonType, _ <: Ast]]
-      (implicit ast: Ast): Serializer[Short, JsonType] =
-    new Serializer[Short, JsonType] { def serialize(s: Short) = ast.fromDouble(s.toDouble) }
+  implicit def bigIntSerializer(implicit ast: JsonAst): JsonSerializer[BigInt] =
+    BasicJsonSerializer(ast fromBigDecimal BigDecimal(_))
 
-  implicit def byteSerializer[Ast <: JsonAst, JsonType <: JsonDataType[JsonType, _ <: Ast]]
-      (implicit ast: Ast): Serializer[Byte, JsonType] =
-    new Serializer[Byte, JsonType] { def serialize(b: Byte) = ast.fromDouble(b.toDouble) }
+  implicit def longSerializer(implicit ast: JsonAst): JsonSerializer[Long] =
+    BasicJsonSerializer(ast fromDouble _.toDouble)
 
-  implicit def traversableSerializer[Type, Coll[T] <: Traversable[T], Ast <: JsonAst,
-      JsonType <: JsonDataType[JsonType, _ <: Ast]](implicit ast: Ast,
-      ser: Serializer[Type, JsonType]): Serializer[Coll[Type], JsonType] =
-    new Serializer[Coll[Type], JsonType] {
-      def serialize(xs: Coll[Type]) = ast.fromArray(xs.map(ser.serialize).to[List])
-    }
+  implicit def shortSerializer(implicit ast: JsonAst): JsonSerializer[Short] =
+    BasicJsonSerializer(ast fromDouble _.toDouble)
+
+  implicit def byteSerializer(implicit ast: JsonAst): JsonSerializer[Byte] =
+    BasicJsonSerializer(ast fromDouble _.toDouble)
+
+  implicit def traversableSerializer[Type: JsonSerializer, Coll[T] <: Traversable[T]]
+      (implicit ast: JsonAst): JsonSerializer[Coll[Type]] =
+    BasicJsonSerializer(ast fromArray _.map(?[JsonSerializer[Type]].serialize).to[List])
 
   implicit def mapSerializer[Type, Ast <: JsonAst, JsonType <: JsonDataType[JsonType, _ <: Ast]]
       (implicit ast: Ast, ser: Serializer[Type, JsonType]): Serializer[Map[String, Type],
@@ -89,33 +77,28 @@ trait Serializers {
       def serialize(m: Map[String, Type]) = ast.fromObject(m.mapValues(ser.serialize))
     }
 
-  case class DirectSerializer[T](ast: JsonAst)
+  case class DirectJsonSerializer[T](ast: JsonAst)
 
-  implicit def directSerializer[T: DirectSerializer, Ast <: JsonAst, JsonType <:
-      JsonDataType[JsonType, _ <: Ast]](implicit ast: Ast, ser: Serializer[Json, Json]):
-      Serializer[T, JsonType] =
-    new Serializer[T, JsonType] {
-      def serialize(obj: T) =
-        ser.serialize(Json.construct(VCell(obj), Vector())(?[DirectSerializer[T]].ast))
-    }
+  implicit def directJsonSerializer[T: DirectJsonSerializer](implicit ast: JsonAst):
+      JsonSerializer[T] =
+    BasicJsonSerializer[T](obj => jsonSerializer.serialize(Json.construct(VCell(obj),
+        Vector())(?[DirectJsonSerializer[T]].ast)))
 
-  implicit def jsonSerializer[Ast <: JsonAst, JsonType <: JsonDataType[JsonType, _ <: JsonAst],
-      JsonType2 <: JsonDataType[_, _ <: JsonAst]](implicit ast: Ast): Serializer[JsonType,
-      JsonType2] =
-    new Serializer[JsonType, JsonType2] {
-      def serialize(j: JsonType) =
-        if(j.$ast == ast) j.$normalize else {
-          val oldAst = j.$ast
+  implicit def jsonSerializer[JsonType <: JsonDataType[JsonType, _ <: JsonAst]]
+      (implicit ast: JsonAst): JsonSerializer[JsonType] =
+    BasicJsonSerializer({ j =>
+      if(j.$ast == ast) j.$normalize else {
+        val oldAst = j.$ast
 
-          def convert(v: Any): Any =
-            if(oldAst.isString(v)) ast.fromString(oldAst.getString(v))
-            else if(oldAst.isBoolean(v)) ast.fromBoolean(oldAst.getBoolean(v))
-            else if(oldAst.isNumber(v)) ast.fromDouble(oldAst.getDouble(v))
-            else if(oldAst.isArray(v)) ast.fromArray(oldAst.getArray(v).map(convert))
-            else if(oldAst.isObject(v)) ast.fromObject(oldAst.getObject(v).mapValues(convert))
-            else ast.nullValue
+        def convert(v: Any): Any =
+          if(oldAst.isString(v)) ast.fromString(oldAst.getString(v))
+          else if(oldAst.isBoolean(v)) ast.fromBoolean(oldAst.getBoolean(v))
+          else if(oldAst.isNumber(v)) ast.fromDouble(oldAst.getDouble(v))
+          else if(oldAst.isArray(v)) ast.fromArray(oldAst.getArray(v).map(convert))
+          else if(oldAst.isObject(v)) ast.fromObject(oldAst.getObject(v).mapValues(convert))
+          else ast.nullValue
 
-          convert(j.$normalize)
-        }
-    }
+        convert(j.$normalize)
+      }
+    })
 }
