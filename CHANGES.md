@@ -23,3 +23,7 @@ This document describes the changes included in each release of Rapture JSON.
 ## Version 1.0.5
  - Fixed exponential build times (in the nesting depth of extracted case classes)
  - Simpler definitions of serializers
+
+## Version 1.0.6
+ - Removed spurious deprecation warning when using macros
+ - Allow automatic conversion on extraction to `Json` type
